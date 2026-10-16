@@ -1,9 +1,10 @@
+import {fetchCatalog} from './catalog-fetch.js';
 import React,{useEffect,useState} from 'react';
 const options={products:'Produtos',plans:'Planos',subscriptions:'Assinaturas',quotes:'Orçamentos'};
 const statuses={quotes:{draft:'Rascunho',sent:'Enviado',approved:'Aprovado',rejected:'Rejeitado',expired:'Expirado'},subscriptions:{pending:'Pendente',active:'Ativa',paused:'Pausada',cancelled:'Cancelada',expired:'Expirada'}};
 export default function Commercial({token}){
  const [type,setType]=useState('products'),[items,setItems]=useState([]),[editing,setEditing]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- async function request(path,body){const r=await fetch((import.meta.env.VITE_API_URL||'')+'/api/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw Error(d.error||'Falha na gestão comercial');return d;}
+ async function request(path,body){const r=await fetchCatalog((import.meta.env.VITE_API_URL||'')+'/api/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw Error(d.error||'Falha na gestão comercial');return d;}
  useEffect(()=>{let active=true;setItems([]);setEditing(null);setError('');request(type).then(d=>{if(active)setItems(d.items)}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[type,token]);
  async function save(e){e.preventDefault();setBusy(true);setError('');try{
   const body={...editing};if(type==='plans'){if(!/^\d+(?:[.,]\d{1,2})?$/.test(body.price))throw Error('Preço inválido');const [a,b='']=body.price.replace(',','.').split('.');body.price_cents=Number(a)*100+Number(b.padEnd(2,'0'));}
