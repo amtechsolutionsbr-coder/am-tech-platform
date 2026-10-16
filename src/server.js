@@ -99,6 +99,26 @@ const handler = async (req, res) => {
         return json(res,201,result.rows[0]);
       } catch(error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
     }
+    if (req.method === 'GET' && url.pathname === '/api/plans') {
+      const result = await pool.query('SELECT p.id,p.product_id,p.name,p.price_cents,p.billing_cycle,p.active,pr.name AS product_name FROM plans p JOIN products pr ON pr.id=p.product_id ORDER BY pr.name,p.name LIMIT 100');
+      return json(res,200,{items:result.rows});
+    }
+    if (req.method === 'POST' && url.pathname === '/api/plans') {
+      if (!['owner','admin'].includes(membership.rows[0].role)) return json(res,403,{error:'Sem permissão para cadastrar'});
+      const body=await readBody(req);
+      if (!body || typeof body.name!=='string' || body.name.trim().length<2 || body.name.length>120) return json(res,422,{error:'Nome inválido'});
+      if (typeof body.product_id!=='string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.product_id)) return json(res,422,{error:'Produto inválido'});
+      if (!Number.isSafeInteger(body.price_cents) || body.price_cents<0 || body.price_cents>1000000000) return json(res,422,{error:'Preço inválido'});
+      if (!['monthly','yearly','one_time'].includes(body.billing_cycle)) return json(res,422,{error:'Periodicidade inválida'});
+      const client=await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result=await client.query('INSERT INTO plans(product_id,name,price_cents,billing_cycle) SELECT id,$2,$3,$4 FROM products WHERE id=$1 AND active=true RETURNING id,product_id,name,price_cents,billing_cycle,active',[body.product_id,body.name.trim(),body.price_cents,body.billing_cycle]);
+        if (!result.rowCount) { await client.query('ROLLBACK'); return json(res,422,{error:'Produto não encontrado ou inativo'}); }
+        await client.query('INSERT INTO audit_events(actor_id,action,entity_type,entity_id) VALUES($1,$2,$3,$4)',[userId,'plan.created','plan',result.rows[0].id]);
+        await client.query('COMMIT');return json(res,201,result.rows[0]);
+      } catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
+    }
     return json(res, 404, { error: 'Rota não encontrada' });
   } catch (error) {
     if (error.status) return json(res, error.status, { error: error.message });
