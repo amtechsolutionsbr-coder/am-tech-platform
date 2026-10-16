@@ -249,6 +249,14 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
   assert.equal(res.status,200);assert.match(res.headers['content-type'],/text\/csv/);assert.equal(output.trim().split('\r\n').length,206);
   assert.equal((await request('GET','/api/finance/export',id(3))).status,403);
  });
+ await t.test('cadastros consultam registros antigos por paginação e validam parâmetros',async()=>{
+  await query("INSERT INTO clients(name) SELECT 'Cliente paginação '||n FROM generate_series(1,205) n");
+  const first=await request('GET','/api/clients?page_size=100',id(1));assert.equal(first.body.items.length,100);assert.equal(first.body.pagination.total,207);
+  const last=await request('GET','/api/clients?page=3&page_size=100',id(1));assert.equal(last.body.items.length,7);
+  assert.equal((await request('GET','/api/clients?page=-1',id(1))).status,422);
+  assert.equal((await request('GET','/api/client-apps?page=1',id(3))).status,403);
+  for(const route of ['products','plans','subscriptions','quotes','support'])assert.equal((await request('GET','/api/'+route+'?page_size=1',id(3))).status,200);
+ });
  await t.test('backup criptografado restaura dados empresariais em banco vazio',async()=>{
   const snapshot=await snapshotBusiness(pool),password='senha de teste isolado longa';
   const encrypted=encryptBackup(snapshot,password);assert.ok(!encrypted.includes('Exportação integral'));

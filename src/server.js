@@ -1,3 +1,4 @@
+import {catalogRoute} from './catalog.js';
 import http from 'node:http';
 import { dashboardRoute } from './dashboard.js';
 import { correctionRoute } from './financial-corrections.js';
@@ -81,6 +82,7 @@ return async (req, res) => {
     if (!userId) return json(res, 401, { error: 'Autenticação obrigatória' });
     const membership = await pool.query('SELECT role FROM admin_users WHERE auth_user_id = $1 AND active = true', [userId]);
     if (!membership.rowCount || !['owner','admin','support','viewer'].includes(membership.rows[0].role)) return json(res, 403, { error: 'Usuário não autorizado' });
+    if (await catalogRoute({req,res,path:url.pathname,pool,role:membership.rows[0].role,json})) return;
     if (await dashboardRoute({req,res,path:url.pathname,pool,json})) return;
     if (await supportRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (await commercialRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
