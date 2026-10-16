@@ -10,7 +10,7 @@ const staticRoot = resolve(fileURLToPath(new URL('../web/dist/', import.meta.url
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 async function serveStatic(req, res, pathname) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
-  if (pathname.startsWith('/api/') || pathname === '/health') return false;
+  if (pathname === '/api' || pathname.startsWith('/api/') || pathname === '/health') return false;
   let file;
   try {
     const decoded = decodeURIComponent(pathname);
@@ -23,10 +23,10 @@ async function serveStatic(req, res, pathname) {
     res.end(req.method === 'HEAD' ? undefined : data);
     return true;
   } catch {
-    if (extname(pathname)) return false;
+    if (extname(pathname) || pathname.startsWith('/.')) return false;
     try {
       const data = await readFile(resolve(staticRoot, 'index.html'));
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-content-type-options': 'nosniff', 'cache-control': 'no-cache' });
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-content-type-options': 'nosniff', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; object-src 'none'" });
       res.end(data); return true;
     } catch { return false; }
   }
