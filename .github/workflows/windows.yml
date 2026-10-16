@@ -30,6 +30,24 @@ jobs:
         run: npm test
       - name: Gerar instalador sem publicação automática
         run: npm run desktop:pack -- --publish never
+      - name: Instalar e abrir em Windows isolado
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Filter *.exe | Select-Object -First 1
+          $installDir = Join-Path $env:RUNNER_TEMP 'AMTechInstalled'
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S',"/D=$installDir" -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw 'Falha na instalação silenciosa' }
+          $appExe = Join-Path $installDir 'AM Tech Platform.exe'
+          if (!(Test-Path $appExe)) { throw 'Aplicativo instalado não encontrado' }
+          $env:AM_TECH_SMOKE_TEST = '1'
+          $env:AM_TECH_SMOKE_OUTPUT = Join-Path $env:RUNNER_TEMP 'desktop-smoke.json'
+          $process = Start-Process -FilePath $appExe -PassThru
+          if (!$process.WaitForExit(120000)) { $process.Kill(); throw 'Tempo excedido na abertura do aplicativo' }
+          if ($process.ExitCode -ne 0) { throw 'Aplicativo encerrou com erro' }
+          if (!(Test-Path $env:AM_TECH_SMOKE_OUTPUT)) { throw 'Verificação de abertura não foi produzida' }
+          $result = Get-Content $env:AM_TECH_SMOKE_OUTPUT -Raw | ConvertFrom-Json
+          if (!$result.loaded -or !$result.packaged -or $result.nodeIntegration -or !$result.contextIsolation -or !$result.sandbox) { throw 'Verificação desktop inválida' }
+          Copy-Item $env:AM_TECH_SMOKE_OUTPUT release/desktop-smoke.json
       - name: Gerar SHA256
         shell: pwsh
         run: |
@@ -43,5 +61,6 @@ jobs:
           path: |
             release/*.exe
             release/*.exe.sha256
+            release/desktop-smoke.json
           if-no-files-found: error
           retention-days: 30

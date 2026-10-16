@@ -21,7 +21,18 @@ async function start(){
   win.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==allowedOrigin)event.preventDefault()});
   win.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('https://'))shell.openExternal(url);return {action:'deny'}});
   await win.loadURL(httpsUrl);
+  // CI verification uses a fresh Windows user profile, never a real login.
+  if(process.env.AM_TECH_SMOKE_TEST==='1'){
+    const output=process.env.AM_TECH_SMOKE_OUTPUT;
+    if(!output)throw Error('Destino da verificação desktop ausente');
+    const preferences=win.webContents.getLastWebPreferences();
+    if(preferences.nodeIntegration||!preferences.contextIsolation||!preferences.sandbox)throw Error('Isolamento desktop inválido');
+    const title=win.webContents.getTitle();
+    if(!title.includes('AM Tech'))throw Error('Título da plataforma não identificado');
+    fs.writeFileSync(output,JSON.stringify({loaded:true,title,url:win.webContents.getURL(),packaged:app.isPackaged,nodeIntegration:preferences.nodeIntegration,contextIsolation:preferences.contextIsolation,sandbox:preferences.sandbox},null,2));
+    app.quit();
+  }
 }
-app.whenReady().then(start).catch(err=>{console.error(err);app.quit()});
+app.whenReady().then(start).catch(err=>{console.error(err);app.exit(1)});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
 app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)start()});
