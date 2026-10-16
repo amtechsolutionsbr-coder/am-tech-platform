@@ -14,6 +14,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec(await readFile(new URL('../db/004_client_apps.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/005_payments.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/006_editing.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/007_commercial.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -111,6 +112,21 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    const update={name:app.name,app_url:app.app_url,stage:'production'};
    assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),update)).status,200);
    assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),{...update,app_url:'javascript:alert(1)'})).status,422);
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('comercial edita com auditoria e preserva valor de plano contratado',async()=>{
+  const body={name:'Plano revisado',price_cents:12345,billing_cycle:'monthly',active:true};
+  assert.equal((await request('POST','/api/plans/'+plan+'/edit',id(3),body)).status,403);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   assert.equal((await request('POST','/api/plans/'+plan+'/edit',id(1),body)).status,200);
+   assert.equal((await request('POST','/api/plans/'+plan+'/edit',id(1),{...body,price_cents:999})).status,409);
+   assert.equal((await request('POST','/api/products/'+product+'/edit',id(1),{name:'Produto revisado',description:'Descrição',active:true})).status,200);
+   const sub=(await request('GET','/api/subscriptions',id(1))).body.items[0];
+   assert.equal((await request('POST','/api/subscriptions/'+sub.id+'/edit',id(1),{status:'active'})).status,200);
+   const quote=(await request('GET','/api/quotes',id(1))).body.items[0];
+   assert.equal((await request('POST','/api/quotes/'+quote.id+'/edit',id(1),{status:'approved'})).status,200);
+   assert.equal((await request('POST','/api/quotes/'+quote.id+'/edit',id(1),{status:'errado'})).status,422);
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('valida entradas, datas e referências inativas sem salvar',async()=>{
