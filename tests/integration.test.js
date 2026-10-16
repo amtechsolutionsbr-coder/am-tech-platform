@@ -10,6 +10,10 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  try {
  for(const file of ['001_initial.sql','002_quotes.sql'])await db.exec((await readFile(new URL('../db/'+file,import.meta.url),'utf8')).replace('CREATE EXTENSION IF NOT EXISTS pgcrypto;',''));
  await db.exec((await readFile(new URL('../supabase/migrations/20261016031537_backend_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_api;',''));
+ await db.exec(await readFile(new URL('../db/003_finance.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/004_client_apps.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/005_payments.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/006_editing.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -41,6 +45,73 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
   r=await request('POST','/api/quotes',id(1),{client_id:client,title:'Sistema sob medida',complexity:'custom',estimated_hours:10,hourly_rate_cents:10000,extra_cost_cents:2000,margin_percent:20});assert.equal(r.status,201);assert.equal(Number(r.body.total_cents),122400);
   for(const route of ['clients','products','plans','subscriptions','quotes'])assert.equal((await request('GET','/api/'+route,id(2))).body.items.length,1);
   assert.equal((await query('SELECT count(*) AS count FROM audit_events')).rows[0].count,5);
+ });
+ await t.test('financeiro: permissões, centavos, quitação única e totais',async()=>{
+  for(const n of [3,4])for(const method of ['GET','POST'])assert.equal((await request(method,'/api/finance',id(n),{})).status,403);
+  const base={kind:'income',description:'Projeto financeiro',amount_cents:12345,due_date:'2026-10-16',client_id:client};
+  for(const change of [{amount_cents:0},{amount_cents:1.5},{due_date:'2026-02-30'},{client_id:id(99)}])assert.equal((await request('POST','/api/finance',id(1),{...base,...change})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try {
+   const r=await request('POST','/api/finance',id(1),base);assert.equal(r.status,201);
+   const exp=await request('POST','/api/finance',id(2),{...base,kind:'expense',amount_cents:2345});assert.equal(exp.status,201);
+   assert.equal((await request('POST','/api/finance/'+r.body.id+'/settle',id(1),{settled_date:'2099-01-01'})).status,422);
+   for(const entry of [r,exp])assert.equal((await request('POST','/api/finance/'+entry.body.id+'/settle',id(1),{settled_date:'2020-01-01'})).status,200);
+   assert.equal((await request('POST','/api/finance/'+r.body.id+'/settle',id(1),{settled_date:'2020-01-01'})).status,409);
+   const summary=(await request('GET','/api/finance',id(1))).body.summary;
+   assert.equal(Number(summary.received_cents),12345);assert.equal(Number(summary.paid_cents),2345);assert.equal(Number(summary.receivable_cents),0);
+   await assert.rejects(query('DELETE FROM financial_entries'));
+   await assert.rejects(query('UPDATE financial_entries SET amount_cents=1'));
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('pagamentos parciais preservam saldo e resumo mensal',async()=>{
+  const r=await request('POST','/api/finance',id(1),{kind:'income',description:'Pagamento parcelado',amount_cents:10000,due_date:'2026-10-16'});
+  const path='/api/finance/'+r.body.id+'/payments';
+  assert.equal((await request('POST',path,id(1),{amount_cents:3000,settled_date:'2026-01-10'})).status,200);
+  assert.equal((await request('POST',path,id(1),{amount_cents:7001,settled_date:'2026-01-11'})).status,409);
+  let data=(await request('GET','/api/finance',id(1))).body;
+  assert.equal(Number(data.summary.receivable_cents),7000);
+  assert.equal(Number(data.monthly.find(m=>m.month==='2026-01').received_cents),3000);
+  assert.equal((await request('POST',path,id(1),{amount_cents:7000,settled_date:'2026-02-10'})).status,200);
+  assert.equal((await request('POST',path,id(1),{amount_cents:1,settled_date:'2026-02-11'})).status,409);
+ });
+ await t.test('parcelas são atômicas, preservam total e histórico é consultável',async()=>{
+  const body={kind:'income',description:'Projeto em parcelas',amount_cents:10000,due_date:'2026-01-31',installments:3};
+  await db.exec('SET ROLE amtech_api');
+  try{
+   const r=await request('POST','/api/finance/installments',id(1),body);assert.equal(r.status,201);
+   assert.equal(r.body.items.length,3);assert.equal(r.body.items.reduce((n,x)=>n+Number(x.amount_cents),0),10000);
+   assert.equal(String(r.body.items[1].due_date).slice(0,10),'2026-02-28');
+   const entry=r.body.items[0];
+   assert.equal((await request('POST','/api/finance/'+entry.id+'/payments',id(1),{amount_cents:100,settled_date:'2026-01-01'})).status,200);
+   const history=await request('GET','/api/finance/'+entry.id+'/payments',id(1));assert.equal(history.status,200);assert.equal(Number(history.body.items[0].amount_cents),100);
+   assert.equal((await request('GET','/api/finance/'+entry.id+'/payments',id(3))).status,403);
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('central: cliente, URL segura, permissões e papel SQL restrito',async()=>{
+  for(const n of [3,4])for(const method of ['GET','POST'])assert.equal((await request(method,'/api/client-apps',id(n),{})).status,403);
+  const base={name:'App de teste isolado',client_id:client,app_url:'https://example.test/app',stage:'acceptance'};
+  for(const url of ['javascript:alert(1)','http://example.test','https://user:password@example.test','https://example.test?token=secret','https://example.test#token'])assert.equal((await request('POST','/api/client-apps',id(1),{...base,app_url:url})).status,422);
+  assert.equal((await request('POST','/api/client-apps',id(1),{...base,client_id:id(99)})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   assert.equal((await request('POST','/api/client-apps',id(1),base)).status,201);
+   const r=await request('GET','/api/client-apps',id(2));assert.equal(r.status,200);assert.equal(r.body.items[0].client_name,'Cliente de homologação isolada');
+   await assert.rejects(query('DELETE FROM client_apps'));
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('edição de clientes e aplicativos mantém identidade e exige permissão',async()=>{
+  const path='/api/clients/'+client+'/edit';
+  const body={name:'Cliente editado',email:'contato@example.test',phone:'11999999999',status:'active'};
+  assert.equal((await request('POST',path,id(3),body)).status,403);
+  assert.equal((await request('POST',path,id(1),{...body,email:'errado'})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   const r=await request('POST',path,id(1),body);assert.equal(r.status,200);assert.equal(r.body.id,client);
+   const app=(await request('GET','/api/client-apps',id(1))).body.items[0];
+   const update={name:app.name,app_url:app.app_url,stage:'production'};
+   assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),update)).status,200);
+   assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),{...update,app_url:'javascript:alert(1)'})).status,422);
+  }finally{await db.exec('RESET ROLE')}
  });
  await t.test('valida entradas, datas e referências inativas sem salvar',async()=>{
   assert.equal((await request('POST','/api/clients',id(1),{name:'a'})).status,422);

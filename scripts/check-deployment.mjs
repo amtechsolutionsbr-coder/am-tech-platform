@@ -10,9 +10,11 @@ if (process.env.RENDER !== 'true') {
   const pool = new Pool({...databaseConfig(process.env.DATABASE_URL),max:1});
   let server;
   try {
-    for(const table of ['admin_users','clients','products','plans','subscriptions','quotes'])await pool.query('SELECT 1 FROM public.'+table+' LIMIT 1');
+    for(const table of ['admin_users','clients','products','plans','subscriptions','quotes','financial_entries','financial_payments','client_apps'])await pool.query('SELECT 1 FROM public.'+table+' LIMIT 1');
     const privilege=await pool.query("SELECT current_user, has_table_privilege(current_user,'public.clients','DELETE') AS can_delete, has_table_privilege(current_user,'public.audit_events','UPDATE') AS can_rewrite");
     if(privilege.rows[0].current_user!=='amtech_api'||privilege.rows[0].can_delete||privilege.rows[0].can_rewrite)throw Error('Permissões SQL inesperadas');
+    const financial=await pool.query("SELECT has_table_privilege(current_user,'financial_payments','UPDATE') AS can_rewrite,has_table_privilege(current_user,'financial_entries','DELETE') AS can_delete");
+    if(financial.rows[0].can_rewrite||financial.rows[0].can_delete)throw Error('Permissões financeiras inesperadas');
     const jwks=await fetch(process.env.SUPABASE_URL+'/auth/v1/.well-known/jwks.json',{signal:AbortSignal.timeout(10000)});
     if(!jwks.ok||!(await jwks.json()).keys?.some(k=>['ES256','RS256'].includes(k.alg)))throw Error('JWKS incompatível');
     server=http.createServer(handler);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
