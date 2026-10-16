@@ -147,3 +147,9 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# AM Tech web build and local secrets
+web/dist/
+web/.env
+web/.env.*
+!web/.env.example
