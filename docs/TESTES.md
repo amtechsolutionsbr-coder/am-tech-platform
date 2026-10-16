@@ -21,3 +21,8 @@ Cobertura: saúde, prontidão, JSON inválido/grande, UTF-8 dividido entre pacot
 5. Conferir os eventos no SQL Editor e testar em Windows e celular.
 
 Não declarar essa homologação concluída apenas porque o processo compila, `/health` responde ou testes isolados passam.
+
+## Cobertura ampliada
+49 testes locais aprovados no conjunto de manutenção comercial, suporte e estornos. Inclui divisão de centavos e fim de mês, pagamentos parciais, histórico, estorno único e reabertura do saldo, preservação de preço contratado, notas de suporte imutáveis e vínculo correto entre aplicativo e cliente. React/Vite compilado e GitHub Actions aprovado.
+
+O usuário confirmou funcionamento do acesso e da publicação anterior. Isso não substitui homologação específica das novas telas de gestão comercial, suporte e estornos, ainda pendente com registros legítimos. Não inserir dados fictícios em produção.
