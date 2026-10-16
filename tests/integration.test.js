@@ -1,3 +1,4 @@
+import {snapshotBusiness,encryptBackup,decryptBackup,restoreBusinessToEmpty} from '../src/business-backup.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -247,6 +248,24 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
   await handler({method:'GET',url:'/api/finance/export?month=2025-03',headers:{authorization:id(1)}},res);
   assert.equal(res.status,200);assert.match(res.headers['content-type'],/text\/csv/);assert.equal(output.trim().split('\r\n').length,206);
   assert.equal((await request('GET','/api/finance/export',id(3))).status,403);
+ });
+ await t.test('backup criptografado restaura dados empresariais em banco vazio',async()=>{
+  const snapshot=await snapshotBusiness(pool),password='senha de teste isolado longa';
+  const encrypted=encryptBackup(snapshot,password);assert.ok(!encrypted.includes('Exportação integral'));
+  assert.throws(()=>decryptBackup(encrypted,'senha incorreta'));const restored=decryptBackup(encrypted,password);
+  const target=new PGlite();
+  try{
+   for(const file of ['001_initial.sql','002_quotes.sql'])await target.exec((await readFile(new URL('../db/'+file,import.meta.url),'utf8')).replace('CREATE EXTENSION IF NOT EXISTS pgcrypto;',''));
+   await target.exec((await readFile(new URL('../supabase/migrations/20261016031537_backend_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_api;',''));
+   for(const file of ['003_finance.sql','004_client_apps.sql','005_payments.sql','006_editing.sql','007_commercial.sql','008_support.sql','009_reversals.sql','010_financial_corrections.sql'])await target.exec(await readFile(new URL('../db/'+file,import.meta.url),'utf8'));
+   const destination={query:async(sql,params)=>target.query(sql,params)};
+   await restoreBusinessToEmpty(destination,restored);
+   assert.equal(Number((await target.query('SELECT count(*) AS n FROM financial_entries')).rows[0].n),snapshot.tables.financial_entries.length);
+   assert.equal((await target.query('SELECT reason FROM financial_reversals')).rows[0].reason,snapshot.tables.financial_reversals[0].reason);
+   await assert.rejects(restoreBusinessToEmpty(destination,restored),/vazio/);
+   const next=await target.query("INSERT INTO audit_events(actor_id,action,entity_type,entity_id) VALUES($1,'test','test',$1) RETURNING id",[id(1)]);
+   assert.ok(Number(next.rows[0].id)>Math.max(...snapshot.tables.audit_events.map(x=>Number(x.id))));
+  }finally{await target.close()}
  });
  await t.test('prontidão depende do banco disponível',async()=>{
   assert.equal((await request('GET','/ready')).status,200);
