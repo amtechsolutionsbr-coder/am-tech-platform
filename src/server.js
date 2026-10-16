@@ -1,4 +1,7 @@
 import http from 'node:http';
+import { reversalRoute } from './reversals.js';
+import { supportRoute } from './support.js';
+import { commercialRoute } from './commercial.js';
 import { editingRoute } from './editing.js';
 import { clientAppsRoute } from './client-apps.js';
 import { financeRoute } from './finance.js';
@@ -76,8 +79,11 @@ return async (req, res) => {
     if (!userId) return json(res, 401, { error: 'Autenticação obrigatória' });
     const membership = await pool.query('SELECT role FROM admin_users WHERE auth_user_id = $1 AND active = true', [userId]);
     if (!membership.rowCount || !['owner','admin','support','viewer'].includes(membership.rows[0].role)) return json(res, 403, { error: 'Usuário não autorizado' });
+    if (await supportRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
+    if (await commercialRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (await editingRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (await clientAppsRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
+    if (await reversalRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (await financeRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (req.method === 'GET' && url.pathname === '/api/me') {
       return json(res, 200, { user_id: userId, role: membership.rows[0].role });

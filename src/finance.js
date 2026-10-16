@@ -5,14 +5,14 @@ export async function financeRoute({req,res,path,pool,userId,role,readBody,json}
  if(path!=='/api/finance' && !path.startsWith('/api/finance/'))return false;
  if(!['owner','admin'].includes(role)){json(res,403,{error:'Financeiro restrito à administração'});return true;}
  if(req.method==='GET'&&path==='/api/finance'){
-  const items=await pool.query(`SELECT f.*,c.name AS client_name, COALESCE(p.total,0) AS paid_cents FROM financial_entries f LEFT JOIN clients c ON c.id=f.client_id LEFT JOIN (SELECT entry_id,sum(amount_cents) total FROM financial_payments GROUP BY entry_id) p ON p.entry_id=f.id ORDER BY f.due_date DESC,f.created_at DESC LIMIT 200`);
-  const summary=await pool.query(`SELECT COALESCE(sum(p.total) FILTER(WHERE f.kind='income'),0) AS received_cents, COALESCE(sum(p.total) FILTER(WHERE f.kind='expense'),0) AS paid_cents, COALESCE(sum(f.amount_cents-COALESCE(p.total,0)) FILTER(WHERE f.kind='income'),0) AS receivable_cents, COALESCE(sum(f.amount_cents-COALESCE(p.total,0)) FILTER(WHERE f.kind='expense'),0) AS payable_cents FROM financial_entries f LEFT JOIN (SELECT entry_id,sum(amount_cents) total FROM financial_payments GROUP BY entry_id) p ON p.entry_id=f.id`);
-  const monthly=await pool.query(`SELECT to_char(p.paid_date,'YYYY-MM') AS month, COALESCE(sum(p.amount_cents) FILTER(WHERE f.kind='income'),0) AS received_cents, COALESCE(sum(p.amount_cents) FILTER(WHERE f.kind='expense'),0) AS paid_cents FROM financial_payments p JOIN financial_entries f ON f.id=p.entry_id GROUP BY to_char(p.paid_date,'YYYY-MM') ORDER BY month DESC LIMIT 24`);
+  const items=await pool.query(`SELECT f.*,c.name AS client_name, COALESCE(p.total,0) AS paid_cents FROM financial_entries f LEFT JOIN clients c ON c.id=f.client_id LEFT JOIN (SELECT entry_id,sum(amount_cents) total FROM financial_payments p WHERE NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id) GROUP BY entry_id) p ON p.entry_id=f.id ORDER BY f.due_date DESC,f.created_at DESC LIMIT 200`);
+  const summary=await pool.query(`SELECT COALESCE(sum(p.total) FILTER(WHERE f.kind='income'),0) AS received_cents, COALESCE(sum(p.total) FILTER(WHERE f.kind='expense'),0) AS paid_cents, COALESCE(sum(f.amount_cents-COALESCE(p.total,0)) FILTER(WHERE f.kind='income'),0) AS receivable_cents, COALESCE(sum(f.amount_cents-COALESCE(p.total,0)) FILTER(WHERE f.kind='expense'),0) AS payable_cents FROM financial_entries f LEFT JOIN (SELECT entry_id,sum(amount_cents) total FROM financial_payments p WHERE NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id) GROUP BY entry_id) p ON p.entry_id=f.id`);
+  const monthly=await pool.query(`SELECT to_char(p.paid_date,'YYYY-MM') AS month, COALESCE(sum(p.amount_cents) FILTER(WHERE f.kind='income'),0) AS received_cents, COALESCE(sum(p.amount_cents) FILTER(WHERE f.kind='expense'),0) AS paid_cents FROM financial_payments p JOIN financial_entries f ON f.id=p.entry_id WHERE NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id) GROUP BY to_char(p.paid_date,'YYYY-MM') ORDER BY month DESC LIMIT 24`);
   json(res,200,{items:items.rows,summary:summary.rows[0],monthly:monthly.rows});return true;
  }
  const history=path.match(/^\/api\/finance\/([0-9a-f-]+)\/payments$/i);
  if(req.method==='GET'&&history&&uuid.test(history[1])){
-  const result=await pool.query('SELECT id,amount_cents,paid_date,created_at FROM financial_payments WHERE entry_id=$1 ORDER BY paid_date,created_at',[history[1]]);
+  const result=await pool.query('SELECT p.id,p.amount_cents,p.paid_date,p.created_at,r.reason AS reversal_reason,r.created_at AS reversed_at FROM financial_payments p LEFT JOIN financial_reversals r ON r.payment_id=p.id WHERE p.entry_id=$1 ORDER BY p.paid_date,p.created_at',[history[1]]);
   json(res,200,{items:result.rows});return true;
  }
  if(req.method!=='POST'){json(res,404,{error:'Rota não encontrada'});return true;}
@@ -43,12 +43,12 @@ export async function financeRoute({req,res,path,pool,userId,role,readBody,json}
   }else{
    const entry=await c.query('SELECT * FROM financial_entries WHERE id=$1 FOR UPDATE',[settle[1]]);
    if(!entry.rowCount){await c.query('ROLLBACK');json(res,404,{error:'Lançamento não encontrado'});return true;}
-   const paid=await c.query('SELECT COALESCE(sum(amount_cents),0) AS total FROM financial_payments WHERE entry_id=$1',[settle[1]]);
+   const paid=await c.query('SELECT COALESCE(sum(amount_cents),0) AS total FROM financial_payments p WHERE entry_id=$1 AND NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id)',[settle[1]]);
    const remaining=Number(entry.rows[0].amount_cents)-Number(paid.rows[0].total);
    const amount=settle[2]==='settle'?remaining:body.amount_cents;
    if(!Number.isSafeInteger(amount)||amount<=0||amount>remaining){await c.query('ROLLBACK');json(res,409,{error:'Valor inválido, superior ao saldo ou lançamento já quitado'});return true;}
    await c.query('INSERT INTO financial_payments(entry_id,amount_cents,paid_date) VALUES($1,$2,$3)',[settle[1],amount,body.settled_date]);
-   r=await c.query('UPDATE financial_entries SET settled_date=CASE WHEN $2 THEN (SELECT max(paid_date) FROM financial_payments WHERE entry_id=$1) ELSE NULL END WHERE id=$1 RETURNING *',[settle[1],amount===remaining]);
+   r=await c.query('UPDATE financial_entries SET settled_date=CASE WHEN $2 THEN (SELECT max(paid_date) FROM financial_payments p WHERE entry_id=$1 AND NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id)) ELSE NULL END WHERE id=$1 RETURNING *',[settle[1],amount===remaining]);
   }
   await c.query('INSERT INTO audit_events(actor_id,action,entity_type,entity_id) VALUES($1,$2,$3,$4)',[userId,path==='/api/finance'?'finance.created':'finance.payment_recorded','financial_entry',r.rows[0].id]);
   await c.query('COMMIT');json(res,path==='/api/finance'?201:200,r.rows[0]);

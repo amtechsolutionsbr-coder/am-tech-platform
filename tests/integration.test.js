@@ -14,6 +14,9 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec(await readFile(new URL('../db/004_client_apps.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/005_payments.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/006_editing.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/007_commercial.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/008_support.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/009_reversals.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -87,6 +90,24 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    assert.equal((await request('GET','/api/finance/'+entry.id+'/payments',id(3))).status,403);
   }finally{await db.exec('RESET ROLE')}
  });
+ await t.test('estorno preserva pagamento, reabre saldo e exige motivo',async()=>{
+  const r=await request('POST','/api/finance',id(1),{kind:'expense',description:'Despesa a corrigir',amount_cents:1000,due_date:'2026-01-01'});
+  await request('POST','/api/finance/'+r.body.id+'/settle',id(1),{settled_date:'2026-01-01'});
+  const h=(await request('GET','/api/finance/'+r.body.id+'/payments',id(1))).body.items;
+  const path='/api/finance/payments/'+h[0].id+'/reverse';
+  assert.equal((await request('POST',path,id(3),{reason:'Erro de registro'})).status,403);
+  assert.equal((await request('POST',path,id(1),{reason:'x'})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   assert.equal((await request('POST',path,id(1),{reason:'Erro de registro'})).status,201);
+   assert.equal((await request('POST',path,id(1),{reason:'Estorno duplicado'})).status,409);
+   const entry=(await request('GET','/api/finance',id(1))).body.items.find(x=>x.id===r.body.id);
+   assert.equal(Number(entry.paid_cents),0);assert.equal(entry.settled_date,null);
+   const history=(await request('GET','/api/finance/'+r.body.id+'/payments',id(1))).body.items;
+   assert.equal(history.length,1);assert.equal(history[0].reversal_reason,'Erro de registro');
+   await assert.rejects(query('DELETE FROM financial_reversals'));
+  }finally{await db.exec('RESET ROLE')}
+ });
  await t.test('central: cliente, URL segura, permissões e papel SQL restrito',async()=>{
   for(const n of [3,4])for(const method of ['GET','POST'])assert.equal((await request(method,'/api/client-apps',id(n),{})).status,403);
   const base={name:'App de teste isolado',client_id:client,app_url:'https://example.test/app',stage:'acceptance'};
@@ -111,6 +132,38 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    const update={name:app.name,app_url:app.app_url,stage:'production'};
    assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),update)).status,200);
    assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),{...update,app_url:'javascript:alert(1)'})).status,422);
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('comercial edita com auditoria e preserva valor de plano contratado',async()=>{
+  const body={name:'Plano revisado',price_cents:12345,billing_cycle:'monthly',active:true};
+  assert.equal((await request('POST','/api/plans/'+plan+'/edit',id(3),body)).status,403);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   assert.equal((await request('POST','/api/plans/'+plan+'/edit',id(1),body)).status,200);
+   assert.equal((await request('POST','/api/plans/'+plan+'/edit',id(1),{...body,price_cents:999})).status,409);
+   assert.equal((await request('POST','/api/products/'+product+'/edit',id(1),{name:'Produto revisado',description:'Descrição',active:true})).status,200);
+   const sub=(await request('GET','/api/subscriptions',id(1))).body.items[0];
+   assert.equal((await request('POST','/api/subscriptions/'+sub.id+'/edit',id(1),{status:'active'})).status,200);
+   const quote=(await request('GET','/api/quotes',id(1))).body.items[0];
+   assert.equal((await request('POST','/api/quotes/'+quote.id+'/edit',id(1),{status:'approved'})).status,200);
+   assert.equal((await request('POST','/api/quotes/'+quote.id+'/edit',id(1),{status:'errado'})).status,422);
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('suporte vincula cliente e aplicativo, preserva histórico e bloqueia escrita de leitura',async()=>{
+  const app=(await request('GET','/api/client-apps',id(1))).body.items[0];
+  const body={client_id:client,app_id:app.id,title:'Falha no aplicativo',description:'Descrição do problema',priority:'high'};
+  assert.equal((await request('POST','/api/support',id(3),body)).status,403);
+  assert.equal((await request('POST','/api/support',id(1),{...body,client_id:id(99)})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   const r=await request('POST','/api/support',id(1),body);assert.equal(r.status,201);
+   const path='/api/support/'+r.body.id+'/updates';
+   assert.equal((await request('POST',path,id(1),{status:'resolved',note:'Problema corrigido'})).status,200);
+   assert.equal((await request('POST',path,id(4),{status:'open',note:'Tentativa de alteração'})).status,403);
+   const h=await request('GET',path,id(3));assert.equal(h.status,200);assert.equal(h.body.items.length,2);
+   assert.equal((await request('GET','/api/support',id(4))).body.items[0].status,'resolved');
+   await assert.rejects(query('DELETE FROM support_tickets'));
+   await assert.rejects(query("UPDATE support_updates SET note='reescrito'"));
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('valida entradas, datas e referências inativas sem salvar',async()=>{
