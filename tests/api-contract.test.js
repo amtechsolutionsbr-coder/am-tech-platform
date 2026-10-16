@@ -60,3 +60,10 @@ test('caminho com byte NUL codificado não entrega arquivo',async()=>{
   const r=await request('GET','/%00package.json');
   assert.notEqual(r.status,200);
 });
+
+test('caminhos com segmentos ocultos não entregam arquivos',async()=>{
+  for(const path of ['/.git/config','/.env','/assets/.secret.js']){
+    const r=await request('GET',path);
+    assert.notEqual(r.status,200,path);
+  }
+});
