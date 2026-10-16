@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { authenticate } from './auth.js';
 import { calculateQuoteTotal } from './quote-pricing.js';
+import { isValidISODate } from './date-validation.js';
 
 const port = Number(process.env.PORT || 3000);
 const staticRoot = resolve(fileURLToPath(new URL('../web/dist/', import.meta.url)));
@@ -129,8 +130,8 @@ const handler = async (req, res) => {
       const body=await readBody(req);
       const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!body || typeof body.client_id!=='string' || !uuid.test(body.client_id) || typeof body.plan_id!=='string' || !uuid.test(body.plan_id)) return json(res,422,{error:'Cliente ou plano inválido'});
-      if (body.started_at != null && (typeof body.started_at!=='string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.started_at))) return json(res,422,{error:'Data inicial inválida'});
-      if (body.next_billing_at != null && (typeof body.next_billing_at!=='string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.next_billing_at))) return json(res,422,{error:'Data de cobrança inválida'});
+      if (body.started_at != null && (typeof body.started_at!=='string' || !isValidISODate(body.started_at))) return json(res,422,{error:'Data inicial inválida'});
+      if (body.next_billing_at != null && (typeof body.next_billing_at!=='string' || !isValidISODate(body.next_billing_at))) return json(res,422,{error:'Data de cobrança inválida'});
       const client=await pool.connect();
       try {
         await client.query('BEGIN');
