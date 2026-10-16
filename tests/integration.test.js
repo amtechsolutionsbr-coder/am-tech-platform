@@ -12,6 +12,8 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec((await readFile(new URL('../supabase/migrations/20261016031537_backend_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_api;',''));
  await db.exec(await readFile(new URL('../db/003_finance.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/004_client_apps.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/005_payments.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/006_editing.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -61,6 +63,17 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    await assert.rejects(query('UPDATE financial_entries SET amount_cents=1'));
   }finally{await db.exec('RESET ROLE')}
  });
+ await t.test('pagamentos parciais preservam saldo e resumo mensal',async()=>{
+  const r=await request('POST','/api/finance',id(1),{kind:'income',description:'Pagamento parcelado',amount_cents:10000,due_date:'2026-10-16'});
+  const path='/api/finance/'+r.body.id+'/payments';
+  assert.equal((await request('POST',path,id(1),{amount_cents:3000,settled_date:'2026-01-10'})).status,200);
+  assert.equal((await request('POST',path,id(1),{amount_cents:7001,settled_date:'2026-01-11'})).status,409);
+  let data=(await request('GET','/api/finance',id(1))).body;
+  assert.equal(Number(data.summary.receivable_cents),7000);
+  assert.equal(Number(data.monthly.find(m=>m.month==='2026-01').received_cents),3000);
+  assert.equal((await request('POST',path,id(1),{amount_cents:7000,settled_date:'2026-02-10'})).status,200);
+  assert.equal((await request('POST',path,id(1),{amount_cents:1,settled_date:'2026-02-11'})).status,409);
+ });
  await t.test('central: cliente, URL segura, permissões e papel SQL restrito',async()=>{
   for(const n of [3,4])for(const method of ['GET','POST'])assert.equal((await request(method,'/api/client-apps',id(n),{})).status,403);
   const base={name:'App de teste isolado',client_id:client,app_url:'https://example.test/app',stage:'acceptance'};
@@ -71,6 +84,20 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    assert.equal((await request('POST','/api/client-apps',id(1),base)).status,201);
    const r=await request('GET','/api/client-apps',id(2));assert.equal(r.status,200);assert.equal(r.body.items[0].client_name,'Cliente de homologação isolada');
    await assert.rejects(query('DELETE FROM client_apps'));
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('edição de clientes e aplicativos mantém identidade e exige permissão',async()=>{
+  const path='/api/clients/'+client+'/edit';
+  const body={name:'Cliente editado',email:'contato@example.test',phone:'11999999999',status:'active'};
+  assert.equal((await request('POST',path,id(3),body)).status,403);
+  assert.equal((await request('POST',path,id(1),{...body,email:'errado'})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   const r=await request('POST',path,id(1),body);assert.equal(r.status,200);assert.equal(r.body.id,client);
+   const app=(await request('GET','/api/client-apps',id(1))).body.items[0];
+   const update={name:app.name,app_url:app.app_url,stage:'production'};
+   assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),update)).status,200);
+   assert.equal((await request('POST','/api/client-apps/'+app.id+'/edit',id(1),{...update,app_url:'javascript:alert(1)'})).status,422);
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('valida entradas, datas e referências inativas sem salvar',async()=>{
