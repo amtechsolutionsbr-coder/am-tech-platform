@@ -1,0 +1,26 @@
+name: Validar AM Tech Platform
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar API
+        run: npm install --no-audit --no-fund
+      - name: Testar API
+        run: npm test
+        env:
+          NODE_ENV: test
+      - name: Instalar interface
+        run: npm --prefix web install --no-audit --no-fund
+      - name: Compilar interface
+        run: npm --prefix web run build
