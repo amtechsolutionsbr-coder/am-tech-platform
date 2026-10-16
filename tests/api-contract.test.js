@@ -75,3 +75,11 @@ test('rotas desconhecidas fora da API retornam 404',async()=>{
     assert.match(r.headers['content-type'],/application\/json/);
   }
 });
+
+test('API rejeita métodos HTTP não suportados',async()=>{
+  for(const method of ['DELETE','PUT','PATCH']){
+    const r=await request(method,'/api/clients');
+    assert.equal(r.status,405,method);
+    assert.equal(r.body.error,'Método não permitido');
+  }
+});
