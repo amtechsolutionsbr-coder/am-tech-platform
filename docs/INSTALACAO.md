@@ -11,3 +11,16 @@ O site tem manifesto PWA e layout responsivo. Após publicar em HTTPS, Android: 
 
 ## Estado real
 Arquitetura e telas preparadas no repositório. Não há aplicativo publicado, instalador `.exe` gerado ou testes em dispositivos reais.
+
+## Gerar instalador Windows (ambiente Windows)
+
+Pré-requisitos: Node.js 22+, conexão com npm e URL HTTPS da plataforma já publicada.
+
+```powershell
+npm install
+npm run desktop:pack
+```
+
+O instalador NSIS será criado em `release/`, caso a compilação conclua sem erros. O aplicativo exige a variável `AM_TECH_APP_URL` configurada com a URL HTTPS oficial **no computador em que for executado**. Isso é uma limitação provisória: antes de distribuir o instalador, precisamos embutir a URL pública de forma segura, sem incluir segredos.
+
+A assinatura digital do instalador, o teste no Windows e a distribuição ainda estão pendentes.
