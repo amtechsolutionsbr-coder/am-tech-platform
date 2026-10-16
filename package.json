@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "npm --prefix web install && npm --prefix web run build",
+    "start:production": "node src/server.js"
   },
   "engines": {
     "node": ">=20"
