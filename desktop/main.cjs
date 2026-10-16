@@ -1,25 +1,20 @@
-const {app,BrowserWindow,shell}=require('electron');
-const {spawn}=require('node:child_process');
-const http=require('node:http');
-const path=require('node:path');
-let server;
-const port=process.env.AM_TECH_PORT||'38473';
-function waitForServer(attempt=0){
-  return new Promise((resolve,reject)=>{
-    http.get('http://127.0.0.1:'+port+'/health',res=>{res.resume();if(res.statusCode===200)resolve();else reject(new Error('Health check falhou'))}).on('error',err=>{
-      if(attempt>=40)reject(err);else setTimeout(()=>waitForServer(attempt+1).then(resolve,reject),250);
-    });
-  });
+const {app,BrowserWindow,shell,dialog}=require('electron');
+const httpsUrl=process.env.AM_TECH_APP_URL;
+function validUrl(value){
+  try { const u=new URL(value);return u.protocol==='https:' && !!u.hostname && !u.username && !u.password && !u.hash; }
+  catch {return false}
 }
 async function start(){
-  server=spawn(process.execPath,[path.join(__dirname,'../src/server.js')],{
-    env:{...process.env,PORT:port,ELECTRON_RUN_AS_NODE:'1'},stdio:'ignore',windowsHide:true
-  });
-  await waitForServer();
-  const win=new BrowserWindow({width:1240,height:800,minWidth:760,minHeight:540,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});
-  win.loadURL('http://127.0.0.1:'+port);
+  if(!validUrl(httpsUrl)){
+    dialog.showErrorBox('AM Tech Platform','A URL HTTPS da plataforma não foi configurada. Configure AM_TECH_APP_URL para a URL oficial publicada.');
+    app.quit();return;
+  }
+  const allowedOrigin=new URL(httpsUrl).origin;
+  const win=new BrowserWindow({width:1240,height:800,minWidth:760,minHeight:540,autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+  win.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==allowedOrigin)event.preventDefault()});
   win.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('https://'))shell.openExternal(url);return {action:'deny'}});
+  await win.loadURL(httpsUrl);
 }
 app.whenReady().then(start).catch(err=>{console.error(err);app.quit()});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
-app.on('before-quit',()=>{if(server)server.kill()});
+app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)start()});
