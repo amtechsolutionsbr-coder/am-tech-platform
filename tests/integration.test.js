@@ -9,7 +9,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  const db=new PGlite();
  try {
  for(const file of ['001_initial.sql','002_quotes.sql'])await db.exec((await readFile(new URL('../db/'+file,import.meta.url),'utf8')).replace('CREATE EXTENSION IF NOT EXISTS pgcrypto;',''));
- await db.exec((await readFile(new URL('../supabase/migrations/20261016031446_backend_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_api;',''));
+ await db.exec((await readFile(new URL('../supabase/migrations/20261016031537_backend_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_api;',''));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});

@@ -4,7 +4,7 @@ Projeto exclusivo AM Tech no Supabase: `xyzzkpdipdupgrywwhna`. Workspace empresa
 
 ## Ambiente novo
 1. Execute `db/001_initial.sql` e `db/002_quotes.sql` no projeto empresarial.
-2. Aplique `supabase/migrations/20261016031446_backend_role.sql` uma vez. O papel `amtech_api` começa sem login; gere um segredo forte em ambiente privado e habilite LOGIN com PASSWORD pelo canal administrativo seguro. Não use credencial postgres em produção.
+2. Aplique `supabase/migrations/20261016031537_backend_role.sql` uma vez. O papel `amtech_api` começa sem login; gere um segredo forte em ambiente privado e habilite LOGIN com PASSWORD pelo canal administrativo seguro. Não use credencial postgres em produção.
 3. A conexão deve usar o Session pooler fornecido em Connect no Supabase se a hospedagem usa IPv4. O usuário é `amtech_api.REFERENCIA_DO_PROJETO`; use o host real exibido pelo projeto, banco postgres, porta 5432 e TLS com certificado validado.
 4. Crie um serviço web Node.js no Render com este repositório, branch main, build `npm ci --ignore-scripts && npm run build`, start `npm start`, Node 22. Use `/ready` como health check quando o banco estiver conectado.
 5. Configure as variáveis abaixo no painel seguro. A aplicação não lê arquivos `.env` automaticamente; no desenvolvimento use `node --env-file=.env src/server.js`.

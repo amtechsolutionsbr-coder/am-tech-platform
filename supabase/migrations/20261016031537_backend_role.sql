@@ -29,3 +29,4 @@ CREATE POLICY backend_read ON public.subscriptions FOR SELECT TO amtech_api USIN
 CREATE POLICY backend_insert ON public.subscriptions FOR INSERT TO amtech_api WITH CHECK (true);
 CREATE POLICY backend_read ON public.quotes FOR SELECT TO amtech_api USING (true);
 CREATE POLICY backend_insert ON public.quotes FOR INSERT TO amtech_api WITH CHECK (true);
+

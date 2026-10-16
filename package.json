@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
-    "build": "npm --prefix web ci --include=dev && npm --prefix web run build",
+    "build": "npm --prefix web ci --include=dev && npm --prefix web run build && node scripts/check-deployment.mjs",
     "start:production": "node src/server.js",
     "desktop:dev": "node scripts/prepare-desktop.mjs && electron .",
     "desktop:pack": "node scripts/prepare-desktop.mjs && electron-builder --win nsis --x64"
