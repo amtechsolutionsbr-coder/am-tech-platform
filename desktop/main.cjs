@@ -20,7 +20,21 @@ async function start(){
   const win=new BrowserWindow({width:1240,height:800,minWidth:760,minHeight:540,autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
   win.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==allowedOrigin)event.preventDefault()});
   win.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('https://'))shell.openExternal(url);return {action:'deny'}});
-  await win.loadURL(httpsUrl);
+  while(!win.isDestroyed()){
+    try { await win.loadURL(httpsUrl); break; }
+    catch(error){
+      if(process.env.AM_TECH_SMOKE_TEST==='1')throw error;
+      if(win.isDestroyed())return;
+      const {response}=await dialog.showMessageBox(win,{
+        type:'warning',title:'AM Tech Platform',
+        message:'Não foi possível conectar à AM Tech Platform.',
+        detail:'Confira sua conexão com a internet e tente novamente. Seus dados continuam salvos no servidor.\n\nAM Tech Solutions',
+        buttons:['Tentar novamente','Fechar'],defaultId:0,cancelId:1,noLink:true
+      });
+      if(response!==0){win.close();return;}
+    }
+  }
+  if(win.isDestroyed())return;
   // CI verification uses a fresh Windows user profile, never a real login.
   if(process.env.AM_TECH_SMOKE_TEST==='1'){
     const output=process.env.AM_TECH_SMOKE_OUTPUT;
