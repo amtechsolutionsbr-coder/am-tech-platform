@@ -1,0 +1,47 @@
+name: Gerar instalador Windows
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/windows.yml'
+      - 'desktop/**'
+      - 'scripts/prepare-desktop.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      AM_TECH_APP_URL: https://am-tech-platform.onrender.com/
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+      - name: Testar aplicação
+        run: npm test
+      - name: Gerar instalador sem publicação automática
+        run: npm run desktop:pack -- --publish never
+      - name: Gerar SHA256
+        shell: pwsh
+        run: |
+          Get-ChildItem release -Filter *.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AM-Tech-Platform-Windows
+          path: |
+            release/*.exe
+            release/*.exe.sha256
+          if-no-files-found: error
+          retention-days: 30

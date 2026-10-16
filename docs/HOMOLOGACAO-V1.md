@@ -19,3 +19,6 @@ Com dados legítimos, conferir cliente → produto/plano → orçamento → assi
 - Executável Windows ainda não gerado/homologado; estrutura Electron atual depende de internet.
 
 O aplicativo da adega começa após o fechamento desta plataforma. Este documento não declara conclusão de verificações pendentes.
+
+## Retorno do usuário
+Em 16/10/2026, o usuário confirmou que as telas consultadas funcionam no seu acesso. Confirmação de uso não equivale a execução independente de todos os casos, como segunda identidade de leitura, recuperação de backup e instalação Windows. Preparação de workflow Windows adicionada; geração e instalação ainda devem ser verificadas.
