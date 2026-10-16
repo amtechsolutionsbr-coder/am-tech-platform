@@ -1,12 +1,19 @@
 const {app,BrowserWindow,shell,dialog}=require('electron');
-const httpsUrl=process.env.AM_TECH_APP_URL;
+const path=require('node:path');
+const fs=require('node:fs');
+let packagedUrl='';
+try {
+  const config=JSON.parse(fs.readFileSync(path.join(__dirname,'config.json'),'utf8'));
+  packagedUrl=typeof config.appUrl==='string'?config.appUrl:'';
+} catch {}
+const httpsUrl=process.env.AM_TECH_APP_URL||packagedUrl;
 function validUrl(value){
   try { const u=new URL(value);return u.protocol==='https:' && !!u.hostname && !u.username && !u.password && !u.hash; }
   catch {return false}
 }
 async function start(){
   if(!validUrl(httpsUrl)){
-    dialog.showErrorBox('AM Tech Platform','A URL HTTPS da plataforma não foi configurada. Configure AM_TECH_APP_URL para a URL oficial publicada.');
+    dialog.showErrorBox('AM Tech Platform','A URL HTTPS da plataforma não foi configurada. A URL oficial ainda não foi configurada no instalador.');
     app.quit();return;
   }
   const allowedOrigin=new URL(httpsUrl).origin;
