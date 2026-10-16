@@ -67,3 +67,11 @@ test('caminhos com segmentos ocultos não entregam arquivos',async()=>{
     assert.notEqual(r.status,200,path);
   }
 });
+
+test('rotas desconhecidas fora da API retornam 404',async()=>{
+  for(const path of ['/caminho-inexistente.js','/.git/config','/src/server.js']){
+    const r=await request('GET',path);
+    assert.equal(r.status,404,path);
+    assert.match(r.headers['content-type'],/application\/json/);
+  }
+});
