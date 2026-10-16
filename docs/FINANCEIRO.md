@@ -36,3 +36,6 @@ Parcelamento mensal de 1 a 36 parcelas implementado: o valor informado é o tota
 Estorno integral de um pagamento implementado com motivo obrigatório e registro separado imutável. Reabre saldo, exclui o pagamento estornado dos totais e mantém o original no histórico. Não representa devolução bancária. O resumo mensal recalcula os pagamentos válidos; não é demonstrativo contábil de estornos por competência.
 
 Filtros locais por mês do vencimento, tipo e situação, com CSV dos até 200 registros carregados. Totais gerais continuam abrangendo toda a base. Ainda não há exportação integral paginada. Aplicar db/009_reversals.sql antes de publicar. Validação local atual: 49 testes e compilação React/Vite aprovados; ainda sem publicação desta etapa.
+
+## Correção de lançamento sem pagamento ativo
+Implementada edição de descrição, valor e vencimento, exigindo motivo de 5 a 1000 caracteres. O registro anterior e o novo ficam em financial_corrections, sem alteração ou exclusão pelo backend. Pagamentos ativos bloqueiam edição; é necessário estornar primeiro. A correção afeta apenas o lançamento escolhido, não as demais parcelas. Não muda cliente nem tipo da receita/despesa. Nova tela e API ainda sem publicação; aplicar db/010_financial_corrections.sql antes de disponibilizar. 50 testes locais aprovados e React/Vite compilado.

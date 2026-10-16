@@ -17,6 +17,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec(await readFile(new URL('../db/007_commercial.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/008_support.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/009_reversals.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/010_financial_corrections.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -63,7 +64,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    const summary=(await request('GET','/api/finance',id(1))).body.summary;
    assert.equal(Number(summary.received_cents),12345);assert.equal(Number(summary.paid_cents),2345);assert.equal(Number(summary.receivable_cents),0);
    await assert.rejects(query('DELETE FROM financial_entries'));
-   await assert.rejects(query('UPDATE financial_entries SET amount_cents=1'));
+   await assert.rejects(query('UPDATE financial_payments SET amount_cents=1'));
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('pagamentos parciais preservam saldo e resumo mensal',async()=>{
@@ -106,6 +107,22 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    const history=(await request('GET','/api/finance/'+r.body.id+'/payments',id(1))).body.items;
    assert.equal(history.length,1);assert.equal(history[0].reversal_reason,'Erro de registro');
    await assert.rejects(query('DELETE FROM financial_reversals'));
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('correção exige motivo, bloqueia pagamentos ativos e preserva antes/depois',async()=>{
+  const r=await request('POST','/api/finance',id(1),{kind:'income',description:'Cadastro incorreto',amount_cents:1000,due_date:'2026-01-01'});
+  const path='/api/finance/'+r.body.id;
+  const body={description:'Cadastro corrigido',amount_cents:2000,due_date:'2026-02-01',reason:'Valor cadastrado errado'};
+  assert.equal((await request('POST',path+'/edit',id(3),body)).status,403);
+  assert.equal((await request('POST',path+'/edit',id(1),{...body,reason:''})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   assert.equal((await request('POST',path+'/edit',id(1),body)).status,200);
+   const history=(await request('GET',path+'/corrections',id(1))).body.items;
+   assert.equal(Number(history[0].previous_data.amount_cents),1000);assert.equal(Number(history[0].new_data.amount_cents),2000);
+   assert.equal((await request('POST',path+'/payments',id(1),{amount_cents:100,settled_date:'2026-01-01'})).status,200);
+   assert.equal((await request('POST',path+'/edit',id(1),body)).status,409);
+   await assert.rejects(query('DELETE FROM financial_corrections'));
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('central: cliente, URL segura, permissões e papel SQL restrito',async()=>{
