@@ -47,3 +47,11 @@ test('rota API inexistente nunca responde HTML',async()=>{
   assert.equal(r.status,503);
   assert.match(r.headers['content-type'],/application\/json/);
 });
+
+test('rotas API reservadas nunca retornam HTML sem banco',async()=>{
+  if(process.env.DATABASE_URL)return;
+  for(const path of ['/api','/api/quotes','/api/nao-existe','/health?x=1']){
+    const r=await request('GET',path);
+    assert.match(r.headers['content-type'],/application\/json/,path);
+  }
+});
