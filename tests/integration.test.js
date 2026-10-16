@@ -15,6 +15,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec(await readFile(new URL('../db/005_payments.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/006_editing.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/007_commercial.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/008_support.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -127,6 +128,23 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    const quote=(await request('GET','/api/quotes',id(1))).body.items[0];
    assert.equal((await request('POST','/api/quotes/'+quote.id+'/edit',id(1),{status:'approved'})).status,200);
    assert.equal((await request('POST','/api/quotes/'+quote.id+'/edit',id(1),{status:'errado'})).status,422);
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('suporte vincula cliente e aplicativo, preserva histórico e bloqueia escrita de leitura',async()=>{
+  const app=(await request('GET','/api/client-apps',id(1))).body.items[0];
+  const body={client_id:client,app_id:app.id,title:'Falha no aplicativo',description:'Descrição do problema',priority:'high'};
+  assert.equal((await request('POST','/api/support',id(3),body)).status,403);
+  assert.equal((await request('POST','/api/support',id(1),{...body,client_id:id(99)})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   const r=await request('POST','/api/support',id(1),body);assert.equal(r.status,201);
+   const path='/api/support/'+r.body.id+'/updates';
+   assert.equal((await request('POST',path,id(1),{status:'resolved',note:'Problema corrigido'})).status,200);
+   assert.equal((await request('POST',path,id(4),{status:'open',note:'Tentativa de alteração'})).status,403);
+   const h=await request('GET',path,id(3));assert.equal(h.status,200);assert.equal(h.body.items.length,2);
+   assert.equal((await request('GET','/api/support',id(4))).body.items[0].status,'resolved');
+   await assert.rejects(query('DELETE FROM support_tickets'));
+   await assert.rejects(query("UPDATE support_updates SET note='reescrito'"));
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('valida entradas, datas e referências inativas sem salvar',async()=>{
