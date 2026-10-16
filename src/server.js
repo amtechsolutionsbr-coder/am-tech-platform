@@ -7,7 +7,7 @@ import { authenticate } from './auth.js';
 
 const port = Number(process.env.PORT || 3000);
 const staticRoot = resolve(fileURLToPath(new URL('../web/dist/', import.meta.url)));
-const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8', '.woff2': 'font/woff2', '.webp': 'image/webp' };
 async function serveStatic(req, res, pathname) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
   if (pathname === '/api' || pathname.startsWith('/api/') || pathname === '/health') return false;
