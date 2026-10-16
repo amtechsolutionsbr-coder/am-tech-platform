@@ -33,3 +33,10 @@ test('não confia em cabeçalho de usuário como autenticação',async()=>{
   const r=await request('GET','/api/me',{'x-user-id':'00000000-0000-0000-0000-000000000000'});
   assert.equal(r.status,503);
 });
+
+test('caminhos internos não retornam arquivos da aplicação',async()=>{
+  for(const path of ['/.env','/package.json','/src/server.js','/desktop/main.cjs']){
+    const r=await request('GET',path);
+    assert.notEqual(r.status,200,path);
+  }
+});
