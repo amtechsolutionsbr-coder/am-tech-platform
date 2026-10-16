@@ -19,6 +19,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec(await readFile(new URL('../db/008_support.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/009_reversals.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/010_financial_corrections.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/011_external_support.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -184,6 +185,28 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    await assert.rejects(query("UPDATE support_updates SET note='reescrito'"));
   }finally{await db.exec('RESET ROLE')}
  });
+ await t.test('suporte externo isola aplicativo, oculta notas e evita duplicar protocolo',async()=>{
+  const app=(await request('GET','/api/client-apps',id(1))).body.items[0];
+  await query('INSERT INTO client_app_users(auth_user_id,app_id) VALUES($1,$2)',[id(10),app.id]);
+  const path='/api/customer-support?app_id='+app.id;
+  assert.equal((await request('GET',path)).status,401);
+  assert.equal((await request('GET',path,id(11))).status,403);
+  assert.equal((await request('GET','/api/clients',id(10))).status,403);
+  const body={request_id:id(80),title:'Ajuda no aplicativo',description:'Cliente solicita apoio',priority:'normal',client_id:id(99)};
+  await db.exec('SET ROLE amtech_api');
+  try{
+   const r=await request('POST',path,id(10),body);assert.equal(r.status,201);
+   assert.equal((await request('POST',path,id(10),body)).body.id,r.body.id);
+   const updates='/api/support/'+r.body.id+'/updates';
+   assert.equal((await request('POST',updates,id(1),{status:'in_progress',note:'Nota confidencial interna'})).status,200);
+   assert.equal((await request('POST',updates,id(1),{status:'resolved',note:'Solução para o cliente',visibility:'customer'})).status,200);
+   const history=await request('GET','/api/customer-support/'+r.body.id+'/updates?app_id='+app.id,id(10));
+   assert.equal(history.body.items.length,2);assert.ok(!JSON.stringify(history.body).includes('confidencial'));assert.ok(!JSON.stringify(history.body).includes('actor_id'));
+   const list=await request('GET',path,id(10));assert.equal(list.body.items.length,1);assert.equal(list.body.items[0].client_id,undefined);
+  }finally{await db.exec('RESET ROLE')}
+  await query('UPDATE client_app_users SET active=false WHERE auth_user_id=$1',[id(10)]);
+  assert.equal((await request('GET',path,id(10))).status,403);
+ });
  await t.test('painel soma toda a base e não expõe dados financeiros',async()=>{
   await db.exec('SET ROLE amtech_api');
   try{
@@ -265,7 +288,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
   try{
    for(const file of ['001_initial.sql','002_quotes.sql'])await target.exec((await readFile(new URL('../db/'+file,import.meta.url),'utf8')).replace('CREATE EXTENSION IF NOT EXISTS pgcrypto;',''));
    await target.exec((await readFile(new URL('../supabase/migrations/20261016031537_backend_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_api;',''));
-   for(const file of ['003_finance.sql','004_client_apps.sql','005_payments.sql','006_editing.sql','007_commercial.sql','008_support.sql','009_reversals.sql','010_financial_corrections.sql'])await target.exec(await readFile(new URL('../db/'+file,import.meta.url),'utf8'));
+   for(const file of ['003_finance.sql','004_client_apps.sql','005_payments.sql','006_editing.sql','007_commercial.sql','008_support.sql','009_reversals.sql','010_financial_corrections.sql','011_external_support.sql'])await target.exec(await readFile(new URL('../db/'+file,import.meta.url),'utf8'));
    const destination={query:async(sql,params)=>target.query(sql,params)};
    await restoreBusinessToEmpty(destination,restored);
    assert.equal(Number((await target.query('SELECT count(*) AS n FROM financial_entries')).rows[0].n),snapshot.tables.financial_entries.length);

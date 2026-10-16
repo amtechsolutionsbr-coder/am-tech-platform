@@ -1,10 +1,10 @@
 import {createCipheriv,createDecipheriv,randomBytes,scryptSync} from 'node:crypto';
-export const backupTables=['admin_users','clients','products','plans','subscriptions','quotes','audit_events','financial_entries','financial_payments','client_apps','support_tickets','support_updates','financial_reversals','financial_corrections'];
+export const backupTables=['admin_users','clients','products','plans','subscriptions','quotes','audit_events','financial_entries','financial_payments','client_apps','support_tickets','support_updates','financial_reversals','financial_corrections','client_app_users'];
 export async function snapshotBusiness(client){
  await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
  try{
   const tables={};for(const table of backupTables)tables[table]=(await client.query('SELECT * FROM public.'+table)).rows;
-  await client.query('COMMIT');return {format:'amtech-business-backup',version:1,created_at:new Date().toISOString(),tables};
+  await client.query('COMMIT');return {format:'amtech-business-backup',version:2,created_at:new Date().toISOString(),tables};
  }catch(e){await client.query('ROLLBACK');throw e;}
 }
 export function encryptBackup(snapshot,password){
@@ -17,11 +17,12 @@ export function decryptBackup(encoded,password){
  const b=JSON.parse(encoded);if(b.format!=='amtech-encrypted-backup'||b.version!==1)throw Error('Formato de backup inválido');
  const decipher=createDecipheriv('aes-256-gcm',scryptSync(password,Buffer.from(b.salt,'base64'),32),Buffer.from(b.iv,'base64'));decipher.setAuthTag(Buffer.from(b.tag,'base64'));
  const result=JSON.parse(Buffer.concat([decipher.update(Buffer.from(b.data,'base64')),decipher.final()]).toString('utf8'));
- if(result.format!=='amtech-business-backup'||result.version!==1||!result.tables||Object.keys(result.tables).length!==backupTables.length||backupTables.some(t=>!Array.isArray(result.tables[t])))throw Error('Conteúdo de backup inválido');
+ if(result.format==='amtech-business-backup'&&result.version===1){result.tables.client_app_users??=[];result.version=2;}
+ if(result.format!=='amtech-business-backup'||result.version!==2||!result.tables||Object.keys(result.tables).length!==backupTables.length||backupTables.some(t=>!Array.isArray(result.tables[t])))throw Error('Conteúdo de backup inválido');
  return result;
 }
 export async function restoreBusinessToEmpty(client,snapshot){
- if(snapshot.format!=='amtech-business-backup'||snapshot.version!==1||backupTables.some(t=>!Array.isArray(snapshot.tables?.[t])))throw Error('Backup inválido');
+ if(snapshot.format!=='amtech-business-backup'||snapshot.version!==2||backupTables.some(t=>!Array.isArray(snapshot.tables?.[t])))throw Error('Backup inválido');
  await client.query('BEGIN');
  try{
   await client.query('LOCK TABLE '+backupTables.map(t=>'public.'+t).join(',')+' IN ACCESS EXCLUSIVE MODE');
