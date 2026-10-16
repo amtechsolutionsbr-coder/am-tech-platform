@@ -1,14 +1,19 @@
+import {financeFilter,financeSelect,financeOrder,exportFinance} from './finance-query.js';
 import { splitInstallments } from './installments.js';
 import { isValidISODate } from './date-validation.js';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function financeRoute({req,res,path,pool,userId,role,readBody,json}) {
  if(path!=='/api/finance' && !path.startsWith('/api/finance/'))return false;
  if(!['owner','admin'].includes(role)){json(res,403,{error:'Financeiro restrito à administração'});return true;}
- if(req.method==='GET'&&path==='/api/finance'){
-  const items=await pool.query(`SELECT f.*,c.name AS client_name, COALESCE(p.total,0) AS paid_cents FROM financial_entries f LEFT JOIN clients c ON c.id=f.client_id LEFT JOIN (SELECT entry_id,sum(amount_cents) total FROM financial_payments p WHERE NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id) GROUP BY entry_id) p ON p.entry_id=f.id ORDER BY f.due_date DESC,f.created_at DESC LIMIT 200`);
+ if(req.method==='GET'&&(path==='/api/finance'||path==='/api/finance/export')){
+  let filter;try{filter=financeFilter(new URL(req.url,'http://localhost').searchParams)}catch(e){json(res,422,{error:e.message});return true;}
+  if(path.endsWith('/export')){await exportFinance({pool,res,filter,userId});return true;}
+  const {values,where,page,size}=filter;
+  const items=await pool.query(financeSelect+where+financeOrder+' LIMIT $'+(values.length+1)+' OFFSET $'+(values.length+2),[...values,size,(page-1)*size]);
+  const count=await pool.query('SELECT count(*) AS total FROM financial_entries f'+where,values);
   const summary=await pool.query(`SELECT COALESCE(sum(p.total) FILTER(WHERE f.kind='income'),0) AS received_cents, COALESCE(sum(p.total) FILTER(WHERE f.kind='expense'),0) AS paid_cents, COALESCE(sum(f.amount_cents-COALESCE(p.total,0)) FILTER(WHERE f.kind='income'),0) AS receivable_cents, COALESCE(sum(f.amount_cents-COALESCE(p.total,0)) FILTER(WHERE f.kind='expense'),0) AS payable_cents FROM financial_entries f LEFT JOIN (SELECT entry_id,sum(amount_cents) total FROM financial_payments p WHERE NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id) GROUP BY entry_id) p ON p.entry_id=f.id`);
   const monthly=await pool.query(`SELECT to_char(p.paid_date,'YYYY-MM') AS month, COALESCE(sum(p.amount_cents) FILTER(WHERE f.kind='income'),0) AS received_cents, COALESCE(sum(p.amount_cents) FILTER(WHERE f.kind='expense'),0) AS paid_cents FROM financial_payments p JOIN financial_entries f ON f.id=p.entry_id WHERE NOT EXISTS(SELECT 1 FROM financial_reversals r WHERE r.payment_id=p.id) GROUP BY to_char(p.paid_date,'YYYY-MM') ORDER BY month DESC LIMIT 24`);
-  json(res,200,{items:items.rows,summary:summary.rows[0],monthly:monthly.rows});return true;
+  json(res,200,{items:items.rows,summary:summary.rows[0],monthly:monthly.rows,pagination:{page,page_size:size,total:Number(count.rows[0].total)}});return true;
  }
  const history=path.match(/^\/api\/finance\/([0-9a-f-]+)\/payments$/i);
  if(req.method==='GET'&&history&&uuid.test(history[1])){

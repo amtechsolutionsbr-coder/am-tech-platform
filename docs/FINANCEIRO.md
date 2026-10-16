@@ -39,3 +39,10 @@ Filtros locais por mês do vencimento, tipo e situação, com CSV dos até 200 r
 
 ## Correção de lançamento sem pagamento ativo
 Implementada edição de descrição, valor e vencimento, exigindo motivo de 5 a 1000 caracteres. O registro anterior e o novo ficam em financial_corrections, sem alteração ou exclusão pelo backend. Pagamentos ativos bloqueiam edição; é necessário estornar primeiro. A correção afeta apenas o lançamento escolhido, não as demais parcelas. Não muda cliente nem tipo da receita/despesa. Nova tela e API ainda sem publicação; aplicar db/010_financial_corrections.sql antes de disponibilizar. 50 testes locais aprovados e React/Vite compilado.
+
+## Consulta e exportação integral — evolução oficial
+Filtros de mês do vencimento, tipo e situação agora são aplicados no PostgreSQL sobre toda a base. Lista paginada de 50 registros, com navegação e total filtrado. A API aceita page_size até 200. Indicadores gerais continuam considerando todos os lançamentos.
+
+Exportação CSV autenticada inclui todos os resultados filtrados, independente da página, usando cursor de leitura em transação consistente e lotes de 500 registros. Conteúdo que poderia virar fórmula ao abrir em planilha é neutralizado. O CSV não é um backup recuperável do banco.
+
+54 testes locais aprovados, incluindo 205 lançamentos em banco descartável, três páginas e exportação completa. React/Vite compilado. Não houve inserção de dados de teste em produção. Esta alteração ainda requer publicação e homologação autenticada. Os demais cadastros ainda mantêm seus limites anteriores.
