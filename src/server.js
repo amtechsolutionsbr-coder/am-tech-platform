@@ -51,7 +51,7 @@ const readBody = async (req) => {
 const handler = async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
-    if (await serveStatic(req, res, url.pathname)) return;
+    if (!url.pathname.startsWith('/api/') && url.pathname !== '/api' && url.pathname !== '/health' && await serveStatic(req, res, url.pathname)) return;
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { status: 'ok', service: 'am-tech-platform', version: '0.1.0' });
     if (!pool) return json(res, 503, { error: 'Banco de dados não configurado' });
     let userId;
