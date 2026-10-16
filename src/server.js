@@ -44,9 +44,11 @@ const json = (res, status, body) => {
 };
 const readBody = async (req) => {
   let text = '';
+  let bytes = 0;
   for await (const chunk of req) {
+    bytes += Buffer.byteLength(chunk);
+    if (bytes > 16000) { const error = new Error('Corpo muito grande'); error.status = 413; throw error; }
     text += chunk.toString();
-    if (text.length > 16000) { const error = new Error('Corpo muito grande'); error.status = 413; throw error; }
   }
   try { return JSON.parse(text); } catch { const error = new Error('JSON inválido'); error.status = 400; throw error; }
 };
