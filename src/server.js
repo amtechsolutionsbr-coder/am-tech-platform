@@ -175,4 +175,4 @@ const handler = async (req, res) => {
   }
 };
 if (process.env.NODE_ENV !== 'test') http.createServer(handler).listen(port, '0.0.0.0', () => console.log('AM Tech API na porta ' + port));
-export { handler };
+export { handler, readBody };
