@@ -8,7 +8,9 @@
     "dev": "node --watch src/server.js",
     "test": "node --test",
     "build": "npm --prefix web install && npm --prefix web run build",
-    "start:production": "node src/server.js"
+    "start:production": "node src/server.js",
+    "desktop:dev": "electron .",
+    "desktop:pack": "electron-builder --win nsis --x64"
   },
   "engines": {
     "node": ">=20"
@@ -16,5 +18,37 @@
   "dependencies": {
     "jose": "^5.9.6",
     "pg": "^8.13.1"
+  },
+  "main": "desktop/main.cjs",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "br.com.amtechsolutions.platform",
+    "productName": "AM Tech Platform",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
