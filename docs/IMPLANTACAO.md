@@ -24,3 +24,8 @@ Não inclua chave secreta ou `service_role` no frontend. Frontend e API são ser
 Execute os testes e o build antes do deploy. Após publicar, valide `/health`, `/ready`, tela de login e bloqueio 401 sem token. A publicação da tela de login não conclui a homologação autenticada: faça o procedimento PRIMEIRO-ADMIN.md e os cenários de TESTES.md antes do uso comercial.
 
 O endpoint JWKS do projeto foi consultado e disponibiliza ES256, aceito pela API. As tabelas mantêm RLS; apenas o papel privado do backend possui políticas próprias. Não conceda esse papel às identidades da Data API.
+
+## Serviço configurado nesta entrega
+URL: https://am-tech-platform.onrender.com
+
+Plano gratuito, região Virginia, Node 22, frontend e API no mesmo serviço, segredos privados configurados no Render. O Session pooler empresarial validado é `aws-1-sa-east-1.pooler.supabase.com:5432`; a API valida o certificado com a CA oficial incluída no repositório. Auto-deploy desligado: depois do CI aprovado, use Manual Deploy > Deploy latest commit no Render. O build verifica a conexão real antes de permitir a publicação.

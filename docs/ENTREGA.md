@@ -22,4 +22,12 @@ No Supabase real foram verificados: projeto ativo, sete tabelas, RLS, chave púb
 ## Critério de liberação comercial
 A existência de um deploy não prova homologação autenticada. É necessário criar a primeira identidade legítima e validar o primeiro login e o fluxo comercial real, conforme PRIMEIRO-ADMIN.md e TESTES.md. Até essa verificação, esta é uma entrega técnica para homologação, sem declaração de liberação comercial.
 
-O serviço foi publicado no Render e o pipeline do GitHub foi aprovado. A checagem de prontidão detectou a ausência da CA oficial do Supabase na trust store do Node; a correção mantém a verificação de certificado e hostname habilitada. A validação final da conexão será registrada após o novo deploy.
+O serviço foi publicado no Render e o pipeline do GitHub foi aprovado. A checagem de prontidão detectou a ausência da CA oficial do Supabase na trust store do Node; a correção mantém a verificação de certificado e hostname habilitada. O novo build passou na checagem real executada dentro do Render: SELECT nas seis tabelas de leitura, papel amtech_api sem DELETE/alteração de auditoria, consulta ao JWKS e smoke HTTP com frontend 200, /health 200, /ready 200, /.env 404 e /api/me 401 sem token e com token inválido. O commit de aplicação validado é `7bbefba2456ebf315d90e0ea296477eb882f7d9a`; GitHub Actions aprovado.
+
+Aplicação: https://am-tech-platform.onrender.com
+Render: https://dashboard.render.com/web/srv-db8pg7ff3r2c73euso60
+CI: https://github.com/amtechsolutionsbr-coder/am-tech-platform/actions/runs/38885990612
+
+O navegador remoto não respondeu dentro do prazo. A renderização visual interativa e o primeiro login real não foram homologados. O banco empresarial permanece sem usuários de Auth, vínculos administrativos ou registros comerciais; não foi semeado com dados fictícios.
+
+Auto-deploy está desligado: futuras publicações exigem CI aprovado e acionamento manual do deploy no Render. O serviço utiliza o plano gratuito. A infraestrutura foi validada; a liberação para uso comercial depende da identidade real e da homologação autenticada descrita acima.
