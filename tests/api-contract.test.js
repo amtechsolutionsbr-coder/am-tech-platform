@@ -22,7 +22,7 @@ test('health retorna 200 sem credenciais',async()=>{
 });
 test('rotas de dados falham fechadas sem configuração de banco',async()=>{
   if(process.env.DATABASE_URL)return;
-  for(const path of ['/api/me','/api/clients','/api/products','/api/plans','/api/subscriptions']){
+  for(const path of ['/api/me','/api/clients','/api/products','/api/plans','/api/subscriptions','/api/quotes']){
     const r=await request('GET',path);
     assert.equal(r.status,503,path);
     assert.equal(r.body.error,'Banco de dados não configurado');
@@ -39,4 +39,11 @@ test('caminhos internos não retornam arquivos da aplicação',async()=>{
     const r=await request('GET',path);
     assert.notEqual(r.status,200,path);
   }
+});
+
+test('rota API inexistente nunca responde HTML',async()=>{
+  if(process.env.DATABASE_URL)return;
+  const r=await request('GET','/api/nao-existe');
+  assert.equal(r.status,503);
+  assert.match(r.headers['content-type'],/application\/json/);
 });
