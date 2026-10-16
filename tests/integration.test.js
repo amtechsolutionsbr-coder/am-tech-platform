@@ -16,6 +16,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec(await readFile(new URL('../db/006_editing.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/007_commercial.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/008_support.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/009_reversals.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -87,6 +88,24 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    assert.equal((await request('POST','/api/finance/'+entry.id+'/payments',id(1),{amount_cents:100,settled_date:'2026-01-01'})).status,200);
    const history=await request('GET','/api/finance/'+entry.id+'/payments',id(1));assert.equal(history.status,200);assert.equal(Number(history.body.items[0].amount_cents),100);
    assert.equal((await request('GET','/api/finance/'+entry.id+'/payments',id(3))).status,403);
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('estorno preserva pagamento, reabre saldo e exige motivo',async()=>{
+  const r=await request('POST','/api/finance',id(1),{kind:'expense',description:'Despesa a corrigir',amount_cents:1000,due_date:'2026-01-01'});
+  await request('POST','/api/finance/'+r.body.id+'/settle',id(1),{settled_date:'2026-01-01'});
+  const h=(await request('GET','/api/finance/'+r.body.id+'/payments',id(1))).body.items;
+  const path='/api/finance/payments/'+h[0].id+'/reverse';
+  assert.equal((await request('POST',path,id(3),{reason:'Erro de registro'})).status,403);
+  assert.equal((await request('POST',path,id(1),{reason:'x'})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   assert.equal((await request('POST',path,id(1),{reason:'Erro de registro'})).status,201);
+   assert.equal((await request('POST',path,id(1),{reason:'Estorno duplicado'})).status,409);
+   const entry=(await request('GET','/api/finance',id(1))).body.items.find(x=>x.id===r.body.id);
+   assert.equal(Number(entry.paid_cents),0);assert.equal(entry.settled_date,null);
+   const history=(await request('GET','/api/finance/'+r.body.id+'/payments',id(1))).body.items;
+   assert.equal(history.length,1);assert.equal(history[0].reversal_reason,'Erro de registro');
+   await assert.rejects(query('DELETE FROM financial_reversals'));
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('central: cliente, URL segura, permissões e papel SQL restrito',async()=>{

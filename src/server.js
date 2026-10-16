@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { reversalRoute } from './reversals.js';
 import { supportRoute } from './support.js';
 import { commercialRoute } from './commercial.js';
 import { editingRoute } from './editing.js';
@@ -82,6 +83,7 @@ return async (req, res) => {
     if (await commercialRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (await editingRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (await clientAppsRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
+    if (await reversalRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (await financeRoute({req,res,path:url.pathname,pool,userId,role:membership.rows[0].role,readBody,json})) return;
     if (req.method === 'GET' && url.pathname === '/api/me') {
       return json(res, 200, { user_id: userId, role: membership.rows[0].role });

@@ -31,3 +31,8 @@ Aplicar db/005_payments.sql após 003 e 004: cria histórico de pagamentos e pre
 Aplicar db/006_editing.sql para edição auditada de clientes (nome, contato, situação) e aplicativos (nome, URL, etapa). As identidades são preservadas.
 
 Parcelamento mensal de 1 a 36 parcelas implementado: o valor informado é o total, a divisão preserva os centavos e vencimentos são limitados ao último dia do mês mantendo o dia original nos meses seguintes. Cada parcela possui seu lançamento e auditoria; todas são criadas na mesma transação. Histórico de pagamentos por lançamento disponível na interface.
+
+## Correções e consulta
+Estorno integral de um pagamento implementado com motivo obrigatório e registro separado imutável. Reabre saldo, exclui o pagamento estornado dos totais e mantém o original no histórico. Não representa devolução bancária. O resumo mensal recalcula os pagamentos válidos; não é demonstrativo contábil de estornos por competência.
+
+Filtros locais por mês do vencimento, tipo e situação, com CSV dos até 200 registros carregados. Totais gerais continuam abrangendo toda a base. Ainda não há exportação integral paginada. Aplicar db/009_reversals.sql antes de publicar. Validação local atual: 49 testes e compilação React/Vite aprovados; ainda sem publicação desta etapa.
