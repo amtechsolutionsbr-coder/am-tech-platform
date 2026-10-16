@@ -55,3 +55,8 @@ test('rotas API reservadas nunca retornam HTML sem banco',async()=>{
     assert.match(r.headers['content-type'],/application\/json/,path);
   }
 });
+
+test('caminho com byte NUL codificado não entrega arquivo',async()=>{
+  const r=await request('GET','/%00package.json');
+  assert.notEqual(r.status,200);
+});
