@@ -15,7 +15,7 @@ async function serveStatic(req, res, pathname) {
   let file;
   try {
     const decoded = decodeURIComponent(pathname);
-    if (decoded.includes('\\') || decoded.includes(String.fromCharCode(0))) return false;
+    if (decoded.includes('\\') || decoded.includes(String.fromCharCode(0)) || decoded.split('/').some(segment => segment.startsWith('.') && segment.length > 1)) return false;
     file = resolve(staticRoot, '.' + decoded);
     if (file !== staticRoot && !file.startsWith(staticRoot + sep)) return false;
     if ((await stat(file)).isDirectory()) file = resolve(file, 'index.html');
