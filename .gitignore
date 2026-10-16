@@ -153,3 +153,7 @@ web/dist/
 web/.env
 web/.env.*
 !web/.env.example
+
+# Configuração gerada automaticamente com URL pública
+/desktop/config.json
+/release/
