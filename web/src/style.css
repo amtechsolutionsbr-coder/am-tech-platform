@@ -25,3 +25,8 @@ select{padding:12px;border:1px solid #d8e1ed;border-radius:9px;width:100%;backgr
 }
 
 .spaced{margin-top:16px}
+/* Identidade AM Tech: superfícies escuras e acentos ciano. */
+:root{color:#e0eafa;background:#080f20;color-scheme:dark}
+body{background:radial-gradient(ellipse at top right,#12314b 0,transparent 55%),#080f20}
+aside{background:#080f20;border-right:1px solid #1f3550}header{background:#0b1729;border-color:#20364c}.stat,.panel,.toolbar,.login{background:#101e32;border-color:#29405c;box-shadow:0 8px 30px #02081428}
+.heading p,.panel p,.login p,.stat span,.stat small{color:#a5b8d0}.eyebrow{color:#54d7ef}.outline{background:#12263d;color:#d6eafa;border-color:#35536e}input,select{background:#0b1729;color:#e0eafa;border-color:#35536e}th{background:#13263d;color:#a9c8e1}th,td{border-color:#23394f}button{background:#1676be}nav button.selected{background:#153c55;box-shadow:inset 3px 0 #54d7ef}.center{background:radial-gradient(ellipse at top,#173951,#080f20 70%)}.error{color:#ffb4a9}.banner{background:#46292d}.credits{padding:20px 36px;color:#a5b8d0;font-size:12px;border-top:1px solid #20364c;overflow-wrap:anywhere}.credits a,.applink{color:#68dcf1}.appgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}.appcard h2{margin-top:14px}.appcard small{display:block;margin-top:22px;color:#a5b8d0}.appcard .pill{display:inline-block}.applink{display:inline-block;padding:10px 0;font-weight:650}.stat strong{font-size:clamp(22px,2.6vw,37px)}a:focus-visible,button:focus-visible{outline:2px solid #68dcf1;outline-offset:4px}

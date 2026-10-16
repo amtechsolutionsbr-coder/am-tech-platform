@@ -11,6 +11,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  for(const file of ['001_initial.sql','002_quotes.sql'])await db.exec((await readFile(new URL('../db/'+file,import.meta.url),'utf8')).replace('CREATE EXTENSION IF NOT EXISTS pgcrypto;',''));
  await db.exec((await readFile(new URL('../supabase/migrations/20261016031537_backend_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_api;',''));
  await db.exec(await readFile(new URL('../db/003_finance.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../db/004_client_apps.sql',import.meta.url),'utf8'));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -58,6 +59,18 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    assert.equal(Number(summary.received_cents),12345);assert.equal(Number(summary.paid_cents),2345);assert.equal(Number(summary.receivable_cents),0);
    await assert.rejects(query('DELETE FROM financial_entries'));
    await assert.rejects(query('UPDATE financial_entries SET amount_cents=1'));
+  }finally{await db.exec('RESET ROLE')}
+ });
+ await t.test('central: cliente, URL segura, permissões e papel SQL restrito',async()=>{
+  for(const n of [3,4])for(const method of ['GET','POST'])assert.equal((await request(method,'/api/client-apps',id(n),{})).status,403);
+  const base={name:'App de teste isolado',client_id:client,app_url:'https://example.test/app',stage:'acceptance'};
+  for(const url of ['javascript:alert(1)','http://example.test','https://user:password@example.test','https://example.test?token=secret','https://example.test#token'])assert.equal((await request('POST','/api/client-apps',id(1),{...base,app_url:url})).status,422);
+  assert.equal((await request('POST','/api/client-apps',id(1),{...base,client_id:id(99)})).status,422);
+  await db.exec('SET ROLE amtech_api');
+  try{
+   assert.equal((await request('POST','/api/client-apps',id(1),base)).status,201);
+   const r=await request('GET','/api/client-apps',id(2));assert.equal(r.status,200);assert.equal(r.body.items[0].client_name,'Cliente de homologação isolada');
+   await assert.rejects(query('DELETE FROM client_apps'));
   }finally{await db.exec('RESET ROLE')}
  });
  await t.test('valida entradas, datas e referências inativas sem salvar',async()=>{
