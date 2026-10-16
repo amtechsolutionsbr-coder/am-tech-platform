@@ -139,6 +139,32 @@ const handler = async (req, res) => {
         await client.query('COMMIT');return json(res,201,result.rows[0]);
       } catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
     }
+    if (req.method === 'GET' && url.pathname === '/api/quotes') {
+      const result = await pool.query('SELECT q.id,q.client_id,c.name AS client_name,q.title,q.complexity,q.estimated_hours,q.hourly_rate_cents,q.extra_cost_cents,q.margin_percent,q.total_cents,q.status,q.created_at FROM quotes q JOIN clients c ON c.id=q.client_id ORDER BY q.created_at DESC LIMIT 100');
+      return json(res,200,{items:result.rows});
+    }
+    if (req.method === 'POST' && url.pathname === '/api/quotes') {
+      if (!['owner','admin'].includes(membership.rows[0].role)) return json(res,403,{error:'Sem permissão para cadastrar'});
+      const body=await readBody(req);
+      const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!body || typeof body.client_id!=='string' || !uuid.test(body.client_id) || typeof body.title!=='string' || body.title.trim().length<3 || body.title.length>160) return json(res,422,{error:'Cliente ou título inválido'});
+      if (!['simple','medium','advanced','custom'].includes(body.complexity)) return json(res,422,{error:'Complexidade inválida'});
+      if (!Number.isSafeInteger(body.estimated_hours) || body.estimated_hours<1 || body.estimated_hours>100000) return json(res,422,{error:'Horas inválidas'});
+      if (!Number.isSafeInteger(body.hourly_rate_cents) || body.hourly_rate_cents<0 || body.hourly_rate_cents>10000000) return json(res,422,{error:'Valor hora inválido'});
+      if (!Number.isSafeInteger(body.extra_cost_cents) || body.extra_cost_cents<0 || body.extra_cost_cents>1000000000) return json(res,422,{error:'Custos adicionais inválidos'});
+      if (!Number.isSafeInteger(body.margin_percent) || body.margin_percent<0 || body.margin_percent>500) return json(res,422,{error:'Margem inválida'});
+      const base=body.estimated_hours*body.hourly_rate_cents+body.extra_cost_cents;
+      const total=Math.round(base*(100+body.margin_percent)/100);
+      if (!Number.isSafeInteger(total) || total>100000000000) return json(res,422,{error:'Total fora do limite'});
+      const client=await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result=await client.query('INSERT INTO quotes(client_id,title,complexity,estimated_hours,hourly_rate_cents,extra_cost_cents,margin_percent,total_cents) SELECT id,$2,$3,$4,$5,$6,$7,$8 FROM clients WHERE id=$1 AND status=$9 RETURNING *',[body.client_id,body.title.trim(),body.complexity,body.estimated_hours,body.hourly_rate_cents,body.extra_cost_cents,body.margin_percent,total,'active']);
+        if(!result.rowCount){await client.query('ROLLBACK');return json(res,422,{error:'Cliente não encontrado ou inativo'})}
+        await client.query('INSERT INTO audit_events(actor_id,action,entity_type,entity_id) VALUES($1,$2,$3,$4)',[userId,'quote.created','quote',result.rows[0].id]);
+        await client.query('COMMIT');return json(res,201,result.rows[0]);
+      }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
+    }
     return json(res, 404, { error: 'Rota não encontrada' });
   } catch (error) {
     if (error.status) return json(res, error.status, { error: error.message });
