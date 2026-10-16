@@ -55,6 +55,7 @@ const handler = async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (!url.pathname.startsWith('/api/') && url.pathname !== '/api' && url.pathname !== '/health' && await serveStatic(req, res, url.pathname)) return;
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { status: 'ok', service: 'am-tech-platform', version: '0.1.0' });
+    if (!url.pathname.startsWith('/api/') && url.pathname !== '/api') return json(res, 404, { error: 'Rota não encontrada' });
     if (!pool) return json(res, 503, { error: 'Banco de dados não configurado' });
     let userId;
     try { userId = await authenticate(req); } catch { return json(res, 401, { error: 'Autenticação inválida' }); }
