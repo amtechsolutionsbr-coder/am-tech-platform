@@ -59,6 +59,9 @@ const handler = async (req, res) => {
     if (!userId) return json(res, 401, { error: 'Autenticação obrigatória' });
     const membership = await pool.query('SELECT role FROM admin_users WHERE auth_user_id = $1 AND active = true', [userId]);
     if (!membership.rowCount) return json(res, 403, { error: 'Usuário não autorizado' });
+    if (req.method === 'GET' && url.pathname === '/api/me') {
+      return json(res, 200, { user_id: userId, role: membership.rows[0].role });
+    }
     if (req.method === 'GET' && url.pathname === '/api/clients') {
       const result = await pool.query('SELECT id, name, email, phone, status, created_at FROM clients ORDER BY created_at DESC LIMIT 100');
       return json(res, 200, { items: result.rows });
