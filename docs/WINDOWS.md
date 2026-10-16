@@ -13,6 +13,9 @@ $env:AM_TECH_APP_URL = 'https://am-tech-platform.onrender.com/'
 npm run desktop:pack -- --publish never
 ```
 
+## Conexão
+Se a plataforma não carregar ao abrir, o programa oferece **Tentar novamente** ou **Fechar**. É necessário acesso à internet; não há operação offline.
+
 ## Instalação e verificação
 1. Extrair o artefato e conferir o SHA256 usando Get-FileHash.
 2. Executar o instalador, escolher a pasta e concluir.
@@ -21,4 +24,4 @@ npm run desktop:pack -- --publish never
 5. Fechar e abrir novamente; conferir login e preservação dos registros.
 6. Testar reinstalação/atualização e desinstalação em Windows antes de distribuição comercial.
 
-Não contornar alertas de segurança automaticamente. Sem certificado de assinatura, avaliar a distribuição antes de entregar a terceiros. A instalação e abertura reais no Windows ainda estão pendentes.
+Não contornar alertas de segurança automaticamente. Sem certificado de assinatura, avaliar a distribuição antes de entregar a terceiros. A instalação silenciosa e a abertura do executável instalado foram verificadas automaticamente no Windows do GitHub Actions, em perfil sem login real. Evidência: https://github.com/amtechsolutionsbr-coder/am-tech-platform/actions/runs/38896675198 . Ainda faltam a instalação no PC pessoal, o login e a conferência dos fluxos de trabalho nesse computador.
