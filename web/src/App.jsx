@@ -1,5 +1,5 @@
 import React,{useEffect,useState} from 'react';import {createClient} from '@supabase/supabase-js';import {LayoutDashboard,Users,Package,Layers,Headphones,LogOut,Plus,RefreshCw,ShieldCheck} from 'lucide-react';
-const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_ANON_KEY,api=import.meta.env.VITE_API_URL||'http://localhost:3000';
+const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_ANON_KEY,api=import.meta.env.VITE_API_URL||'';
 const supabase=url&&key?createClient(url,key):null;
 const nav=[['Visão geral',LayoutDashboard],['Clientes',Users],['Produtos',Package],['Planos e assinaturas',Layers],['Suporte',Headphones]];
 export default function App(){
