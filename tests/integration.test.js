@@ -67,6 +67,26 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
   assert.equal((await request('GET','/api/me',id(2))).status,403);
   assert.equal((await query("SELECT count(*) AS count FROM audit_events WHERE action='access.updated'")).rows[0].count,1);
  });
+ await t.test('papel SQL restrito executa os cinco fluxos sem poder apagar ou alterar auditoria',async()=>{
+  await db.exec('SET ROLE amtech_api');
+  try {
+   const c=await request('POST','/api/clients',id(1),{name:'Cliente com papel restrito'});assert.equal(c.status,201);
+   const p=await request('POST','/api/products',id(1),{name:'Produto com papel restrito'});assert.equal(p.status,201);
+   const plan=await request('POST','/api/plans',id(1),{product_id:p.body.id,name:'Plano restrito',price_cents:100,billing_cycle:'monthly'});assert.equal(plan.status,201);
+   assert.equal((await request('POST','/api/subscriptions',id(1),{client_id:c.body.id,plan_id:plan.body.id})).status,201);
+   assert.equal((await request('POST','/api/quotes',id(1),{client_id:c.body.id,title:'Orçamento restrito',complexity:'simple',estimated_hours:1,hourly_rate_cents:100,extra_cost_cents:0,margin_percent:0})).status,201);
+   assert.equal((await request('POST','/api/access',id(1),{auth_user_id:id(1),role:'owner',active:true})).status,200);
+   await assert.rejects(query('DELETE FROM clients'));
+   await assert.rejects(query("UPDATE audit_events SET action='alterada'"));
+  } finally { await db.exec('RESET ROLE'); }
+ });
+ await t.test('RLS mantém dados inacessíveis a papel público com privilégios de tabela',async()=>{
+  await db.exec('CREATE ROLE anon; GRANT USAGE ON SCHEMA public TO anon; GRANT SELECT,INSERT ON clients TO anon; SET ROLE anon');
+  try {
+   assert.equal((await query('SELECT id FROM clients')).rows.length,0);
+   await assert.rejects(query("INSERT INTO clients(name) VALUES('Acesso público indevido')"));
+  } finally { await db.exec('RESET ROLE'); }
+ });
  await t.test('prontidão depende do banco disponível',async()=>{
   assert.equal((await request('GET','/ready')).status,200);
   const handler=createHandler({database:{query:async()=>{throw Error('offline')}}});

@@ -3,6 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
+import { databaseConfig } from './database.js';
 import { StringDecoder } from 'node:string_decoder';
 import { authenticate } from './auth.js';
 import { calculateQuoteTotal } from './quote-pricing.js';
@@ -34,13 +35,7 @@ async function serveStatic(req, res, pathname) {
     } catch { return false; }
   }
 }
-const pool = process.env.DATABASE_URL ? new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: ['localhost', '127.0.0.1', '[::1]'].includes(new URL(process.env.DATABASE_URL).hostname) ? false : { rejectUnauthorized: true },
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 30000,
-  max: 5
-}) : null;
+const pool = process.env.DATABASE_URL ? new Pool(databaseConfig(process.env.DATABASE_URL)) : null;
 pool?.on('error', () => console.error('Falha na conexão ociosa com o banco'));
 const json = (res, status, body) => {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });

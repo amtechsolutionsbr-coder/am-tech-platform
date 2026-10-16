@@ -4,9 +4,10 @@ if (process.env.RENDER !== 'true') {
   console.log('Verificação de infraestrutura real: executada somente dentro do Render.');
 } else {
   const { Pool } = await import('pg');
+  const { databaseConfig } = await import('../src/database.js');
   const { default: http } = await import('node:http');
   const { handler } = await import('../src/server.js');
-  const pool = new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:true},connectionTimeoutMillis:10000,max:1});
+  const pool = new Pool({...databaseConfig(process.env.DATABASE_URL),max:1});
   let server;
   try {
     for(const table of ['admin_users','clients','products','plans','subscriptions','quotes'])await pool.query('SELECT 1 FROM public.'+table+' LIMIT 1');

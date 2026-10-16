@@ -13,8 +13,12 @@ O projeto Supabase empresarial é `xyzzkpdipdupgrywwhna`. Não usar nenhum proje
 No SQL Editor **do projeto empresarial**, execute substituindo o UUID abaixo pelo UUID real:
 
 ```sql
+-- Confirme id e e-mail antes de autorizar.
+SELECT id, email FROM auth.users WHERE id = 'SUBSTITUA_PELO_UUID_REAL'::uuid;
+
 INSERT INTO public.admin_users (auth_user_id, role, active)
-VALUES ('SUBSTITUA_PELO_UUID_REAL'::uuid, 'owner', true)
+SELECT id, 'owner', true FROM auth.users
+WHERE id = 'SUBSTITUA_PELO_UUID_REAL'::uuid
 ON CONFLICT (auth_user_id)
 DO UPDATE SET role = 'owner', active = true;
 ```
