@@ -4,6 +4,7 @@ import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { authenticate } from './auth.js';
+import { calculateQuoteTotal } from './quote-pricing.js';
 
 const port = Number(process.env.PORT || 3000);
 const staticRoot = resolve(fileURLToPath(new URL('../web/dist/', import.meta.url)));
@@ -149,13 +150,9 @@ const handler = async (req, res) => {
       const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!body || typeof body.client_id!=='string' || !uuid.test(body.client_id) || typeof body.title!=='string' || body.title.trim().length<3 || body.title.length>160) return json(res,422,{error:'Cliente ou título inválido'});
       if (!['simple','medium','advanced','custom'].includes(body.complexity)) return json(res,422,{error:'Complexidade inválida'});
-      if (!Number.isSafeInteger(body.estimated_hours) || body.estimated_hours<1 || body.estimated_hours>100000) return json(res,422,{error:'Horas inválidas'});
-      if (!Number.isSafeInteger(body.hourly_rate_cents) || body.hourly_rate_cents<0 || body.hourly_rate_cents>10000000) return json(res,422,{error:'Valor hora inválido'});
-      if (!Number.isSafeInteger(body.extra_cost_cents) || body.extra_cost_cents<0 || body.extra_cost_cents>1000000000) return json(res,422,{error:'Custos adicionais inválidos'});
-      if (!Number.isSafeInteger(body.margin_percent) || body.margin_percent<0 || body.margin_percent>500) return json(res,422,{error:'Margem inválida'});
-      const base=body.estimated_hours*body.hourly_rate_cents+body.extra_cost_cents;
-      const total=Math.round(base*(100+body.margin_percent)/100);
-      if (!Number.isSafeInteger(total) || total>100000000000) return json(res,422,{error:'Total fora do limite'});
+      let total;
+      try { total = calculateQuoteTotal(body); }
+      catch (error) { if (error instanceof RangeError) return json(res,422,{error:error.message}); throw error; }
       const client=await pool.connect();
       try {
         await client.query('BEGIN');
