@@ -1,3 +1,4 @@
+import {customerSupportRoute} from './customer-support.js';
 import {catalogRoute} from './catalog.js';
 import http from 'node:http';
 import { dashboardRoute } from './dashboard.js';
@@ -80,6 +81,7 @@ return async (req, res) => {
     let userId;
     try { userId = await authenticateRequest(req); } catch { return json(res, 401, { error: 'Autenticação inválida' }); }
     if (!userId) return json(res, 401, { error: 'Autenticação obrigatória' });
+    if (await customerSupportRoute({req,res,path:url.pathname,pool,userId,readBody,json})) return;
     const membership = await pool.query('SELECT role FROM admin_users WHERE auth_user_id = $1 AND active = true', [userId]);
     if (!membership.rowCount || !['owner','admin','support','viewer'].includes(membership.rows[0].role)) return json(res, 403, { error: 'Usuário não autorizado' });
     if (await catalogRoute({req,res,path:url.pathname,pool,role:membership.rows[0].role,json})) return;
