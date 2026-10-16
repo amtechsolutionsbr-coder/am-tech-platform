@@ -9,8 +9,8 @@
     "test": "node --test",
     "build": "npm --prefix web install && npm --prefix web run build",
     "start:production": "node src/server.js",
-    "desktop:dev": "electron .",
-    "desktop:pack": "electron-builder --win nsis --x64"
+    "desktop:dev": "node scripts/prepare-desktop.mjs && electron .",
+    "desktop:pack": "node scripts/prepare-desktop.mjs && electron-builder --win nsis --x64"
   },
   "engines": {
     "node": ">=20"
