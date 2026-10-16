@@ -19,7 +19,7 @@ O proprietário pode atualizar o perfil e ativar/desativar vínculos existentes 
 4. A assinatura inicia pendente. Não há pagamento ou cobrança automática.
 5. Em Orçamentos, informe horas, valor por hora, despesas e acréscimo sobre custos. O servidor recalcula o total; o acréscimo não é margem líquida.
 
-Os cadastros comerciais listam até 100 registros. A aba Gestão comercial permite editar produtos/planos e situações de orçamentos/assinaturas; planos contratados preservam preço e periodicidade. Clientes e aplicativos também têm edição. Não há exclusão nem paginação integral. Nenhum processo automático apaga dados.
+As APIs de cadastros usam paginação; a interface carrega todas as páginas para reunir os registros. A aba Gestão comercial permite editar produtos/planos e situações de orçamentos/assinaturas; planos contratados preservam preço e periodicidade. Clientes e aplicativos também têm edição. Não há exclusão de cadastros. Nenhum processo automático apaga dados.
 
 ## Autorizar outra identidade real
 Um operador com acesso ao SQL Editor do projeto empresarial verifica o UUID em Authentication > Users e insere o vínculo correspondente. Primeiro confirme a existência da identidade:
@@ -51,15 +51,17 @@ Antes de atualizar: confirme backups disponíveis no plano Supabase e exporte um
 
 Rotacione o segredo do papel SQL `amtech_api` pelo painel seguro do banco e atualize `DATABASE_URL` no Render na mesma janela. Nunca cole segredos em issues, commits, documentação ou conversas. Atualize dependências intencionalmente, revise os lockfiles e rode auditoria e testes novamente.
 
-O desktop é um invólucro do site hospedado, depende de internet e ainda exige homologação Windows. A versão móvel é web responsiva; não há sincronização offline nem aplicativo nativo homologado.
+O desktop abre o site hospedado e depende de internet. Instalação e abertura foram testadas em Windows isolado; ainda falta a validação no PC pessoal. A versão móvel é web responsiva; não há sincronização offline nem aplicativo nativo homologado.
 
 ## Financeiro, aplicativos e suporte
 Somente owner/admin acessam o financeiro, a central de aplicativos e a manutenção comercial. Viewer/support permanecem em leitura dos cadastros e dos chamados.
 
-Financeiro: registre o valor total da receita/despesa, primeiro vencimento e de 1 a 36 parcelas mensais. O sistema preserva centavos. Registre pagamentos parciais ou quite o saldo; nenhuma ação realiza cobrança ou devolução bancária. Para erro no pagamento, abra o histórico e escolha Corrigir por estorno, informando o motivo. O original fica preservado e o saldo reabre. Para lançamento com valor ou vencimento incorreto, ainda é necessário procedimento de correção administrativa: não apague registros diretamente.
+Financeiro: registre o valor total da receita/despesa, primeiro vencimento e de 1 a 36 parcelas mensais. O sistema preserva centavos. Registre pagamentos parciais ou quite o saldo; nenhuma ação realiza cobrança ou devolução bancária. Para erro no pagamento, abra o histórico e escolha Corrigir por estorno, informando o motivo. O original fica preservado e o saldo reabre. Para lançamento sem pagamentos ativos, use a correção com motivo para alterar descrição, valor ou vencimento, preservando o histórico anterior.
 
-Filtros e CSV abrangem até 200 lançamentos carregados; indicadores gerais abrangem toda a base. Resumo mensal mostra até 24 meses com pagamentos válidos. Saldo de caixa não é lucro contábil.
+O financeiro consulta páginas no servidor; a exportação CSV inclui todos os resultados filtrados, mesmo fora da página visível. Indicadores gerais abrangem toda a base. Resumo mensal mostra até 24 meses com pagamentos válidos. Saldo de caixa não é lucro contábil.
 
 Suporte: vincule o chamado a cliente e opcionalmente a aplicativo desse cliente. Defina prioridade e registre notas para alterar a situação. O histórico não é reescrito. Não há envio automático de mensagens.
 
 A central cadastra e abre aplicativos. Monitoramento e visão operacional interna dos clientes ainda não estão integrados. Os aplicativos mantêm suas próprias permissões.
+
+Conectar aplicativos de clientes somente quando estiverem oficiais e homologados. Não ativar integrações com demonstrações ou projetos em desenvolvimento.
