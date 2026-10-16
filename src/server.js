@@ -81,6 +81,24 @@ const handler = async (req, res) => {
         return json(res, 201, result.rows[0]);
       } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
     }
+    if (req.method === 'GET' && url.pathname === '/api/products') {
+      const result = await pool.query('SELECT id, name, description, active, created_at FROM products ORDER BY created_at DESC LIMIT 100');
+      return json(res, 200, { items: result.rows });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/products') {
+      if (!['owner','admin'].includes(membership.rows[0].role)) return json(res, 403, { error: 'Sem permissão para cadastrar' });
+      const body = await readBody(req);
+      if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || body.name.length > 120) return json(res, 422, { error: 'Nome inválido' });
+      if (body.description != null && (typeof body.description !== 'string' || body.description.length > 2000)) return json(res, 422, { error: 'Descrição inválida' });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await client.query('INSERT INTO products(name,description) VALUES ($1,$2) RETURNING id,name,description,active,created_at',[body.name.trim(),body.description?.trim()||null]);
+        await client.query('INSERT INTO audit_events(actor_id,action,entity_type,entity_id) VALUES ($1,$2,$3,$4)',[userId,'product.created','product',result.rows[0].id]);
+        await client.query('COMMIT');
+        return json(res,201,result.rows[0]);
+      } catch(error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+    }
     return json(res, 404, { error: 'Rota não encontrada' });
   } catch (error) {
     if (error.status) return json(res, error.status, { error: error.message });
