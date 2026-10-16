@@ -119,6 +119,26 @@ const handler = async (req, res) => {
         await client.query('COMMIT');return json(res,201,result.rows[0]);
       } catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
     }
+    if (req.method === 'GET' && url.pathname === '/api/subscriptions') {
+      const result = await pool.query(`SELECT s.id,s.client_id,s.plan_id,s.status,s.started_at,s.next_billing_at,s.created_at,c.name AS client_name,p.name AS plan_name,p.price_cents,p.billing_cycle,pr.name AS product_name FROM subscriptions s JOIN clients c ON c.id=s.client_id JOIN plans p ON p.id=s.plan_id JOIN products pr ON pr.id=p.product_id ORDER BY s.created_at DESC LIMIT 100`);
+      return json(res,200,{items:result.rows});
+    }
+    if (req.method === 'POST' && url.pathname === '/api/subscriptions') {
+      if (!['owner','admin'].includes(membership.rows[0].role)) return json(res,403,{error:'Sem permissão para cadastrar'});
+      const body=await readBody(req);
+      const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!body || typeof body.client_id!=='string' || !uuid.test(body.client_id) || typeof body.plan_id!=='string' || !uuid.test(body.plan_id)) return json(res,422,{error:'Cliente ou plano inválido'});
+      if (body.started_at != null && (typeof body.started_at!=='string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.started_at))) return json(res,422,{error:'Data inicial inválida'});
+      if (body.next_billing_at != null && (typeof body.next_billing_at!=='string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.next_billing_at))) return json(res,422,{error:'Data de cobrança inválida'});
+      const client=await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result=await client.query(`INSERT INTO subscriptions(client_id,plan_id,started_at,next_billing_at) SELECT c.id,p.id,$3,$4 FROM clients c CROSS JOIN plans p JOIN products pr ON pr.id=p.product_id WHERE c.id=$1 AND c.status='active' AND p.id=$2 AND p.active=true AND pr.active=true RETURNING id,client_id,plan_id,status,started_at,next_billing_at,created_at`,[body.client_id,body.plan_id,body.started_at||null,body.next_billing_at||null]);
+        if(!result.rowCount){await client.query('ROLLBACK');return json(res,422,{error:'Cliente ou plano indisponível'})}
+        await client.query('INSERT INTO audit_events(actor_id,action,entity_type,entity_id) VALUES($1,$2,$3,$4)',[userId,'subscription.created','subscription',result.rows[0].id]);
+        await client.query('COMMIT');return json(res,201,result.rows[0]);
+      } catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
+    }
     return json(res, 404, { error: 'Rota não encontrada' });
   } catch (error) {
     if (error.status) return json(res, error.status, { error: error.message });
