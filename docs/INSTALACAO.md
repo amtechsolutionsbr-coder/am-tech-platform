@@ -18,9 +18,10 @@ Pré-requisitos: Node.js 22+, conexão com npm e URL HTTPS da plataforma já pub
 
 ```powershell
 npm install
+$env:AM_TECH_APP_URL = 'https://SEU-DOMINIO-OFICIAL'
 npm run desktop:pack
 ```
 
-O instalador NSIS será criado em `release/`, caso a compilação conclua sem erros. O aplicativo exige a variável `AM_TECH_APP_URL` configurada com a URL HTTPS oficial **no computador em que for executado**. Isso é uma limitação provisória: antes de distribuir o instalador, precisamos embutir a URL pública de forma segura, sem incluir segredos.
+O instalador NSIS será criado em `release/`, caso a compilação conclua sem erros. O script `scripts/prepare-desktop.mjs` incorpora somente a URL HTTPS pública ao pacote. O usuário final não precisa configurar variáveis de ambiente. Nunca inclua credenciais privadas nessa URL.
 
 A assinatura digital do instalador, o teste no Windows e a distribuição ainda estão pendentes.
