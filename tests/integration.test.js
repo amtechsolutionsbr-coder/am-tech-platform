@@ -183,6 +183,15 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    await assert.rejects(query("UPDATE support_updates SET note='reescrito'"));
   }finally{await db.exec('RESET ROLE')}
  });
+ await t.test('painel soma toda a base e não expõe dados financeiros',async()=>{
+  await db.exec('SET ROLE amtech_api');
+  try{
+   const r=await request('GET','/api/dashboard',id(3));assert.equal(r.status,200);
+   assert.equal(Number(r.body.clients),1);assert.equal(Number(r.body.active_subscriptions),1);assert.equal(Number(r.body.approved_quotes),1);assert.equal(Number(r.body.open_tickets),0);
+   assert.equal(r.body.received_cents,undefined);
+  }finally{await db.exec('RESET ROLE')}
+  assert.equal((await request('GET','/api/dashboard')).status,401);
+ });
  await t.test('valida entradas, datas e referências inativas sem salvar',async()=>{
   assert.equal((await request('POST','/api/clients',id(1),{name:'a'})).status,422);
   assert.equal((await request('POST','/api/plans',id(1),{product_id:product,name:'Teste',price_cents:-1,billing_cycle:'monthly'})).status,422);
