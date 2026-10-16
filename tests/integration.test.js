@@ -237,6 +237,17 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
    await assert.rejects(query("INSERT INTO clients(name) VALUES('Acesso público indevido')"));
   } finally { await db.exec('RESET ROLE'); }
  });
+ await t.test('financeiro pagina e exporta mais de 200 registros sem truncar',async()=>{
+  await query("INSERT INTO financial_entries(kind,description,amount_cents,due_date) SELECT 'income','Exportação integral '||n,100,'2025-03-01' FROM generate_series(1,205) n");
+  const first=await request('GET','/api/finance?month=2025-03&page_size=100',id(1));
+  assert.equal(first.status,200);assert.equal(first.body.items.length,100);assert.equal(first.body.pagination.total,205);
+  const last=await request('GET','/api/finance?month=2025-03&page=3&page_size=100',id(1));assert.equal(last.body.items.length,5);
+  assert.equal((await request('GET','/api/finance?page=0',id(1))).status,422);
+  let output='';const res={headersSent:false,writeHead(status,headers){this.status=status;this.headers=headers;this.headersSent=true},write(chunk){output+=chunk;return true},end(){},destroy(e){throw e}};
+  await handler({method:'GET',url:'/api/finance/export?month=2025-03',headers:{authorization:id(1)}},res);
+  assert.equal(res.status,200);assert.match(res.headers['content-type'],/text\/csv/);assert.equal(output.trim().split('\r\n').length,206);
+  assert.equal((await request('GET','/api/finance/export',id(3))).status,403);
+ });
  await t.test('prontidão depende do banco disponível',async()=>{
   assert.equal((await request('GET','/ready')).status,200);
   const handler=createHandler({database:{query:async()=>{throw Error('offline')}}});
