@@ -15,12 +15,12 @@ jobs:
         with:
           node-version: '22'
       - name: Instalar API
-        run: npm install --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Testar API
         run: npm test
         env:
           NODE_ENV: test
       - name: Instalar interface
-        run: npm --prefix web install --no-audit --no-fund
+        run: npm --prefix web ci --no-audit --no-fund
       - name: Compilar interface
         run: npm --prefix web run build

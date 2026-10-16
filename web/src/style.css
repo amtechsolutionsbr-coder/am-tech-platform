@@ -23,3 +23,5 @@ select{padding:12px;border:1px solid #d8e1ed;border-radius:9px;width:100%;backgr
   .login{padding:24px 20px}
   input,select,button{min-height:44px}
 }
+
+.spaced{margin-top:16px}

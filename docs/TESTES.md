@@ -1,26 +1,23 @@
-# Plano de testes — AM Tech Platform
+# Validação — 0.2.0
 
-## Testes locais
-Usar Node.js 22+, em um terminal na raiz do repositório:
+Execute Node.js 22 ou superior:
 
-```bash
-npm install
+```sh
+npm ci --ignore-scripts
+npm --prefix web ci
 npm test
-npm run build
+npm --prefix web run build
 ```
 
-A compilação usa Vite na pasta `web`. As variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` precisam ser configuradas para testar o login. O build por si só não comprova a autenticação.
+A suíte `node --test` usa PostgreSQL embarcado PGlite para executar o esquema real e as transações da API em memória. Identidades sintéticas existem apenas nesse banco descartável, nunca no Supabase empresarial. A verificação criptográfica usa chaves efêmeras exclusivas dos testes. Esses testes não equivalem ao primeiro login real.
 
-## Cenários obrigatórios antes de produção
-1. `GET /health` responde 200.
-2. Sem `DATABASE_URL`, endpoints privados respondem 503.
-3. Com banco configurado, sem token, endpoints privados respondem 401.
-4. Token Supabase inválido ou expirado responde 401.
-5. Token válido sem associação ativa em `admin_users` responde 403.
-6. Proprietário cadastra cliente, produto, plano e assinatura; cada criação gera auditoria.
-7. Viewer pode consultar, mas não cadastrar (403).
-8. Produto inativo e cliente inativo não podem receber novos planos/assinaturas.
-9. Preços e dados inválidos retornam 422 sem gravar dados.
-10. Atualização da página e encerramento da sessão não vazam informações.
+Cobertura: saúde, prontidão, JSON inválido/grande, UTF-8 dividido entre pacotes, arquivos internos, contratos HTTP, datas reais, cálculo monetário, JWT válido/inválido/expirado/audiência/emissor, vínculos inativos, leitura e escrita dos cinco módulos, referências inativas, auditoria transacional, owner/admin/leitura, último proprietário e revogação.
 
-Os testes automatizados existentes cobrem apenas saúde e comportamento sem banco. **Os testes com autenticação e PostgreSQL real ainda não foram executados.**
+## Homologação real que exige identidade legítima
+1. Criar o primeiro usuário conforme PRIMEIRO-ADMIN.md e acessar a URL publicada.
+2. Confirmar `/api/me` como owner e cadastrar dados comerciais legítimos nos cinco módulos.
+3. Usar uma segunda identidade real para admin e leitura; confirmar ocultação de cadastro e rejeição HTTP 403 quando tentar escrever.
+4. Desativar o vínculo secundário e confirmar bloqueio na próxima requisição.
+5. Conferir os eventos no SQL Editor e testar em Windows e celular.
+
+Não declarar essa homologação concluída apenas porque o processo compila, `/health` responde ou testes isolados passam.

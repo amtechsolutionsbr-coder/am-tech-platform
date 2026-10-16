@@ -1,28 +1,29 @@
 {
   "name": "am-tech-platform",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
-    "build": "npm --prefix web install && npm --prefix web run build",
+    "build": "npm --prefix web ci --include=dev && npm --prefix web run build",
     "start:production": "node src/server.js",
     "desktop:dev": "node scripts/prepare-desktop.mjs && electron .",
     "desktop:pack": "node scripts/prepare-desktop.mjs && electron-builder --win nsis --x64"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
-    "jose": "^5.9.6",
-    "pg": "^8.13.1"
+    "jose": "5.10.0",
+    "pg": "8.23.1"
   },
   "main": "desktop/main.cjs",
   "devDependencies": {
-    "electron": "^33.4.11",
-    "electron-builder": "^25.1.8"
+    "@electric-sql/pglite": "0.5.10",
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
   },
   "build": {
     "appId": "br.com.amtechsolutions.platform",

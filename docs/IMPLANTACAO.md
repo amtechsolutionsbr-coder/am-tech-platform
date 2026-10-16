@@ -1,28 +1,26 @@
-# Implantação segura — AM Tech Platform
+# Implantação — AM Tech Platform 0.2.0
 
-## Situação
-O banco empresarial Supabase foi criado na região sa-east-1 e recebeu a migração inicial. O painel React e a API Node.js estão no mesmo repositório. **A aplicação ainda não foi publicada ou testada em produção.**
+Projeto exclusivo AM Tech no Supabase: `xyzzkpdipdupgrywwhna`. Workspace empresarial Render: `tea-db8ocfrl550s73ekg5b0`. Não usar recursos corporativos de terceiros.
 
-## Antes de publicar
-1. Criar usuário administrativo no Supabase Auth e inserir seu UUID em `admin_users` com `role='owner'`. Nunca usar e-mail como prova de privilégio.
-2. Obter a URL do projeto Supabase e a chave **publishable** para o frontend. Nunca colocar `service_role` no frontend.
-3. Criar usuário PostgreSQL dedicado com permissões mínimas para o backend, em vez de usar credenciais administrativas.
-4. Revisar TLS da conexão PostgreSQL, o método de assinatura JWT do projeto e a compatibilidade com JWKS.
-5. Executar testes automatizados e de autorização com tokens válidos/inválidos.
-6. Validar proteção contra abuso (rate limit), backups, logs e trilha de auditoria antes de clientes reais.
+## Ambiente novo
+1. Execute `db/001_initial.sql` e `db/002_quotes.sql` no projeto empresarial.
+2. Aplique `supabase/migrations/20261016031446_backend_role.sql` uma vez. O papel `amtech_api` começa sem login; gere um segredo forte em ambiente privado e habilite LOGIN com PASSWORD pelo canal administrativo seguro. Não use credencial postgres em produção.
+3. A conexão deve usar o Session pooler fornecido em Connect no Supabase se a hospedagem usa IPv4. O usuário é `amtech_api.REFERENCIA_DO_PROJETO`; use o host real exibido pelo projeto, banco postgres, porta 5432 e TLS com certificado validado.
+4. Crie um serviço web Node.js no Render com este repositório, branch main, build `npm ci --ignore-scripts && npm run build`, start `npm start`, Node 22. Use `/ready` como health check quando o banco estiver conectado.
+5. Configure as variáveis abaixo no painel seguro. A aplicação não lê arquivos `.env` automaticamente; no desenvolvimento use `node --env-file=.env src/server.js`.
 
-## Configuração Render (quando validado)
-- Serviço web Node.js no workspace empresarial.
-- Build: `npm install && npm run build`
-- Start: `npm start`
-- Health check: `/health`
-- Variáveis no ambiente do Render: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`.
-- Variáveis públicas do build React: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. Preferir chave publishable compatível; nenhuma chave privada no navegador.
-- A API e o painel devem usar o mesmo domínio. Não é necessário definir `VITE_API_URL`.
+| Variável | Destino | Conteúdo |
+|---|---|---|
+| DATABASE_URL | Backend | Conexão privada do papel técnico |
+| SUPABASE_URL | Backend | URL HTTPS do projeto empresarial |
+| SUPABASE_JWT_AUDIENCE | Backend | authenticated (padrão) |
+| VITE_SUPABASE_URL | Build React | Mesma URL pública |
+| VITE_SUPABASE_ANON_KEY | Build React | Chave publishable pública; nome legado compatível |
+| NODE_VERSION | Render | 22 |
 
-**Não habilitar deploy público antes de concluir os testes de autenticação e de autorização.**
+Não inclua chave secreta ou `service_role` no frontend. Frontend e API são servidos no mesmo domínio; mantenha `VITE_API_URL` vazio. Alterar variáveis VITE exige recompilar o frontend.
 
-## Pendências
-- A criação de clientes está disponível na API; edição, desativação e paginação ainda faltam.
-- Produtos, planos e assinaturas ainda não possuem endpoints nem telas funcionais.
-- O indicador de clientes usa apenas os 100 primeiros registros, não o total do banco.
+## Validação
+Execute os testes e o build antes do deploy. Após publicar, valide `/health`, `/ready`, tela de login e bloqueio 401 sem token. A publicação da tela de login não conclui a homologação autenticada: faça o procedimento PRIMEIRO-ADMIN.md e os cenários de TESTES.md antes do uso comercial.
+
+O endpoint JWKS do projeto foi consultado e disponibiliza ES256, aceito pela API. As tabelas mantêm RLS; apenas o papel privado do backend possui políticas próprias. Não conceda esse papel às identidades da Data API.
