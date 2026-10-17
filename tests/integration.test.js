@@ -19,6 +19,7 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
  await db.exec(await readFile(new URL('../db/008_support.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/009_reversals.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../db/010_financial_corrections.sql',import.meta.url),'utf8'));
+ await db.exec((await readFile(new URL('../supabase/migrations/20261017025711_dedicated_business_backup_role.sql',import.meta.url),'utf8')).replace('GRANT CONNECT ON DATABASE postgres TO amtech_backup;',''));
  const query=async(sql,params)=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length || result.affectedRows || 0}};
  const pool={query,async connect(){return {query,release(){}}}};
  const handler=createHandler({database:pool,authenticateRequest:async req=>{const token=req.headers.authorization;if(token==='invalid')throw Error('invalid');return token||null}});
@@ -28,6 +29,14 @@ test('homologação isolada: SQL, API, papéis e auditoria',async t=>{
   await handler(req,res);return res;
  }
  for(const [i,role] of [[1,'owner'],[2,'admin'],[3,'viewer'],[4,'support']])await query('INSERT INTO admin_users(auth_user_id,role) VALUES($1,$2)',[id(i),role]);
+ await t.test('backup lê todas as tabelas por RLS sem receber escrita nem ampliar API',async()=>{
+  await query('SET ROLE amtech_backup');
+  try{
+   const snapshot=await snapshotBusiness({query});assert.equal(Object.keys(snapshot.tables).length,14);assert.equal(snapshot.tables.admin_users.length,4);
+   for(const sql of ["INSERT INTO clients(name) VALUES('Proibido')","UPDATE clients SET name='Proibido' WHERE false",'DELETE FROM clients WHERE false','TRUNCATE clients'])await assert.rejects(query(sql),e=>e.code==='42501');
+  }finally{await query('RESET ROLE')}
+  await query('SET ROLE amtech_api');try{await assert.rejects(query('SELECT * FROM audit_events'),e=>e.code==='42501')}finally{await query('RESET ROLE')}
+ });
  await t.test('sem token, inválido, não membro e inativo são recusados',async()=>{
   assert.equal((await request('GET','/api/me')).status,401);
   assert.equal((await request('GET','/api/me','invalid')).status,401);
