@@ -2,18 +2,18 @@
   "id": "/",
   "name": "AM Tech Platform",
   "short_name": "AM Tech",
-  "description": "Gestão empresarial AM Tech Solutions",
+  "description": "Gest\u00e3o empresarial AM Tech Solutions",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#080f20",
   "theme_color": "#172b50",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/brand/am-tech-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

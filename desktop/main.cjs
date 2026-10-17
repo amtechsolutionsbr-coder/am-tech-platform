@@ -17,7 +17,7 @@ async function start(){
     app.quit();return;
   }
   const allowedOrigin=new URL(httpsUrl).origin;
-  const win=new BrowserWindow({width:1240,height:800,minWidth:760,minHeight:540,autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+  const win=new BrowserWindow({width:1240,height:800,minWidth:760,minHeight:540,icon:path.join(__dirname,'assets','am-tech.ico'),autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
   win.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==allowedOrigin)event.preventDefault()});
   win.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('https://'))shell.openExternal(url);return {action:'deny'}});
   while(!win.isDestroyed()){
@@ -47,6 +47,7 @@ async function start(){
     app.quit();
   }
 }
+if(process.platform==='win32')app.setAppUserModelId('br.com.amtechsolutions.platform');
 app.whenReady().then(start).catch(err=>{console.error(err);app.exit(1)});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
 app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)start()});
