@@ -55,3 +55,19 @@ header{height:70px;background:#0b1726db;border-bottom:1px solid #23374b;padding:
 @media(max-width:800px){.shell>aside{position:sticky;height:auto;width:100%;padding:12px;overflow:visible;z-index:10;border-bottom:1px solid #294156}.brand{padding:0 5px 12px}.brand-icon{width:38px;height:38px}nav{gap:5px}nav button{padding:9px 11px;font-size:11px;min-height:40px}.content{padding:25px 18px}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero-emblem{min-width:145px}.hero-emblem img{width:120px;height:120px}.hero-emblem>span{display:none}.emblem-orbit{width:140px;height:140px}header{padding:0 18px;height:55px}.heading{flex-direction:row;align-items:center}.heading h1{font-size:26px}.heading p{font-size:12px}.workspace-shortcuts>div{flex-basis:100%;margin-bottom:5px}}
 @media(max-width:520px){.content{padding:22px 14px}.operation-hero{padding:24px 21px;border-radius:17px}.hero-emblem{display:none}.hero-copy h2{font-size:27px}.hero-actions{gap:8px}.hero-actions button{font-size:10px;padding:10px}.dashboard-toolbar{align-items:flex-start}.dashboard-toolbar h2{font-size:17px}.dashboard-toolbar button{font-size:10px;padding:9px}.metric-grid{gap:10px}.metric-card{padding:15px 13px;border-radius:13px}.metric-card strong{font-size:28px}.metric-label{font-size:10px}.metric-icon{width:31px;height:31px}.metric-group{margin-bottom:22px}.heading{align-items:flex-start;flex-direction:column;gap:12px}.workspace-shortcuts{padding:20px}.workspace-shortcuts button{width:100%;justify-content:space-between}.credits{padding:18px 14px}}
 @media(prefers-reduced-motion:reduce){button{transition:none}.metric-card:hover{transform:none}.refreshing{animation:none}}
+
+/* Feixes decorativos: somente nas bordas, sem bloquear cliques ou leitura. */
+header{position:relative;overflow:hidden}
+header:after,.operation-hero:after,nav button.selected:after{content:'';position:absolute;pointer-events:none;opacity:0;background:linear-gradient(90deg,transparent,#2ab7f6,#9ceeff,transparent);height:2px;width:28%;left:0;top:0;box-shadow:0 0 10px #30cfff88;transform:translateX(-150%)}
+nav button.selected{position:relative;overflow:hidden}
+nav button.selected:after{top:auto;bottom:0;height:1px;width:40%}
+.operation-hero:after{top:auto;bottom:0;width:35%;height:2px}
+[data-neon-motion='on'] header:after{animation:neon-travel 14s ease-in-out infinite}
+[data-neon-motion='on'] .operation-hero:after{animation:neon-travel 12s ease-in-out 2s infinite}
+[data-neon-motion='on'] nav button.selected:after{animation:neon-travel 16s ease-in-out 5s infinite}
+[data-neon-motion='on'] .emblem-orbit{border-top-color:#60dfff77;border-right-color:#35a8d740;animation:neon-orbit 24s linear infinite}
+.motion-toggle{font-size:10px;padding:7px 10px;margin:10px 0 0 12px;vertical-align:middle}
+@keyframes neon-travel{0%,62%{opacity:0;transform:translateX(-150%)}66%{opacity:.7}85%{opacity:.7}92%,100%{opacity:0;transform:translateX(460%)}}
+@keyframes neon-orbit{from{transform:rotate(-20deg)}to{transform:rotate(340deg)}}
+@media(prefers-reduced-motion:reduce){[data-neon-motion='on'] header:after,[data-neon-motion='on'] .operation-hero:after,[data-neon-motion='on'] nav button.selected:after,[data-neon-motion='on'] .emblem-orbit{animation:none}}
+@media(max-width:520px){.motion-toggle{display:block;margin:12px 0 0}}
