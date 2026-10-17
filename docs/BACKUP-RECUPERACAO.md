@@ -7,8 +7,16 @@ O executável pessoal continua conectado ao banco hospedado. Copiar o instalador
 
 `node scripts/business-backup.mjs verify-local caminho/backup.amtech` restaura somente em destino localhost, banco test_* ou restore_*, com esquema previamente criado e todas as tabelas vazias. O teste bloqueia o destino, insere em transação, preserva IDs e histórico e reposiciona a sequência da auditoria. Não existe comando de restauração de produção neste utilitário.
 
+## Conferência do arquivo sem banco
+`node scripts/business-backup.mjs inspect caminho/backup.amtech` usa somente AM_TECH_BACKUP_PASSWORD e não conecta ao banco. Confere a autenticação criptográfica e o formato, mostrando a data registrada e as quantidades por tabela, sem listar clientes, acessos ou valores. Senha errada e arquivo adulterado são recusados.
+
+Essa conferência não prova restauração nem inclui dados de Auth/Storage. Para verificar a recuperação, execute também `verify-local` em destino isolado vazio. Falhas de configuração ou conexão agora recebem mensagem genérica sem imprimir credenciais.
+
+## Situação verificada em 16/10/2026
+Projeto AM Tech ativo e saudável, 14 tabelas públicas, conexão da API sem leitura da auditoria e integração externa não aplicada. Essas verificações não demonstram existência de backup gerenciado.
+
 ## Validação
-55 testes aprovados, incluindo criptografia, rejeição de senha incorreta, restauração do esquema empresarial real em PostgreSQL embarcado isolado, conferência de registros e sequência e rejeição de destino com dados.
+Testes automatizados aprovados, incluindo criptografia, rejeição de senha incorreta, restauração do esquema empresarial real em PostgreSQL embarcado isolado, conferência de registros e sequência e rejeição de destino com dados.
 
 Ainda NÃO foi criado backup dos dados reais nem configurado agendamento. O conector atual não lista backups gerenciados e não fornece conexão SQL apropriada para executar o utilitário. Nenhuma credencial foi solicitada em chat ou exposta.
 
@@ -17,3 +25,8 @@ Supabase Auth (identidades, senhas e sessões), objetos do Storage, permissões 
 
 ## Fechamento pendente
 Verificar no painel Supabase Database > Backups a disponibilidade real do plano; configurar backup gerenciado ou rotina privada de exportação; guardar uma cópia real e testar restauração em ambiente separado, sem substituir produção. Referência oficial: https://supabase.com/docs/guides/platform/backups . Backups gerenciados não incluem os próprios arquivos do Storage.
+
+## Próxima ação no painel
+Abra https://supabase.com/dashboard/project/xyzzkpdipdupgrywwhna/database/backups e confira a data e a situação do último backup disponível. Não acione restauração em produção. Se o painel não oferecer backup no plano atual, configure uma conexão privada dedicada para a exportação empresarial e um destino privado externo ao servidor. Conexão e senha devem ser fornecidas somente no ambiente privado de execução, nunca no chat ou repositório.
+
+A instalação e o login Windows foram confirmados pelo proprietário; o visual e o logo oficial também foram aprovados. Isso não encerra a pendência de cópia real e teste de recuperação.
