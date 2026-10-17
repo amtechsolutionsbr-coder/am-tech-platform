@@ -30,3 +30,8 @@ Verificar no painel Supabase Database > Backups a disponibilidade real do plano;
 Abra https://supabase.com/dashboard/project/xyzzkpdipdupgrywwhna/database/backups e confira a data e a situação do último backup disponível. Não acione restauração em produção. Se o painel não oferecer backup no plano atual, configure uma conexão privada dedicada para a exportação empresarial e um destino privado externo ao servidor. Conexão e senha devem ser fornecidas somente no ambiente privado de execução, nunca no chat ou repositório.
 
 A instalação e o login Windows foram confirmados pelo proprietário; o visual e o logo oficial também foram aprovados. Isso não encerra a pendência de cópia real e teste de recuperação.
+
+## Identidade dedicada de backup
+Em 17/10/2026 UTC, foi criada a identidade SQL `amtech_backup`: SELECT nas 14 tabelas empresariais com políticas RLS específicas, sem INSERT/UPDATE/DELETE/TRUNCATE, sem criação no schema public, sem privilégios administrativos ou bypass de RLS. Nenhuma identidade pública ou da API recebe participação nesse papel. A conexão da API continua sem SELECT de auditoria.
+
+O papel nasce NOLOGIN e sem senha. O proprietário deve definir senha forte e habilitar LOGIN diretamente no painel privado. Não há senha no código, na migração ou no chat. No Session pooler, o usuário passa a ser `amtech_backup.xyzzkpdipdupgrywwhna`, mantendo o host/porta apresentados no Connect. Só testar conexão/exportação após a configuração privada. Esta migração não cria o backup, não configura agendamento e não comprova autenticação por senha.
