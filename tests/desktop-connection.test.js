@@ -7,7 +7,7 @@ async function launch(responses,smoke=false){
   let loads=0,dialogs=0,closed=false,exitCode;
   let ready;
   const win={webContents:{on(){},setWindowOpenHandler(){}},isDestroyed:()=>closed,close(){closed=true},async loadURL(){loads++;if(loads===1)throw Error('offline')}};
-  const electron={app:{whenReady:()=>({then(fn){ready=fn();return {catch(handler){ready=ready.catch(handler);}}}}),on(){},quit(){},exit(code){exitCode=code}},BrowserWindow:function(){return win},shell:{},dialog:{async showMessageBox(){dialogs++;return {response:responses.shift()};}}};
+  const electron={app:{setAppUserModelId(){},whenReady:()=>({then(fn){ready=fn();return {catch(handler){ready=ready.catch(handler);}}}}),on(){},quit(){},exit(code){exitCode=code}},BrowserWindow:function(){return win},shell:{},dialog:{async showMessageBox(){dialogs++;return {response:responses.shift()};}}};
   vm.runInNewContext(readFileSync(new URL('../desktop/main.cjs',import.meta.url),'utf8'),{
     require(name){if(name==='electron')return electron;if(name==='node:path')return {join:()=>''};if(name==='node:fs')return {readFileSync:()=>JSON.stringify({appUrl:'https://example.test/'})};throw Error(name)},
     __dirname:'',URL,process:{env:smoke?{AM_TECH_SMOKE_TEST:'1'}:{},platform:'win32'},console:{error(){}}
